@@ -52,8 +52,8 @@ class JobSlot():
 		return self.slots[slot]
 
 
-class SchedulerManager():
-	def __init__(self, nb_resources, job_slots):
+class SchedulerManager:
+	def __init__(self, job_slots):
 		self._job_slots = JobSlot(job_slots)
 		self._jobs_queue = deque()
 		self._jobs_running = dict()
@@ -100,15 +100,11 @@ class SchedulerManager():
 		self._jobs_queue.clear()
 		self._jobs_running.clear()
 		self._jobs_allocated.clear()
-		self.first_job = None
-		self.last_job = None
-		self.nb_jobs_submitted = 0
-		self.nb_jobs_completed = 0
-		self.total_waiting_time = 0
-		self.total_slowdown = 0
-		self.total_turnaround_time = 0
-		self.runtime_slowdown = 0.0
-		self.runtime_mean_slowdown = 0.0
+		self.first_job, self.last_job = None, None
+		self.nb_jobs_submitted, self.nb_jobs_completed = 0, 0
+		self.total_waiting_time, self.total_slowdown, self.total_turnaround_time = 0, 0, 0
+		self.max_waiting_time, self.max_turnaround_time, self.max_slowdown_time = 0, 0, 0
+		self.runtime_slowdown, self.runtime_mean_slowdown = 0.0, 0.0
 
 	def update_state(self, time_passed):
 		for _, job in self._jobs_running.items():
@@ -182,6 +178,13 @@ class SchedulerManager():
 		self._update_stats(job)
 		self.last_job = job
 		self.nb_jobs_completed += 1
+		if job.waiting_time > self.max_waiting_time:
+			self.max_waiting_time = job.waiting_time
+		if job.turnaround_time > self.max_turnaround_time:
+			self.max_turnaround_time = job.waiting_time
+		if job.slowdown > self.max_slowdown_time:
+			self.max_slowdown_time = job.waiting_time
+
 		return job
 
 	def on_job_submitted(self, time, data):
