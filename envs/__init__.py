@@ -1,2 +1,2 @@
-from gym_grid.envs.grid_env import GridEnv
-from gym_grid.envs.batsim_env import BatsimEnv
+from GridEnv.envs.grid_env import GridEnv
+from GridEnv.envs.batsim_env import BatsimEnv
