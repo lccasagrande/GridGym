@@ -69,7 +69,7 @@ def run(args):
 
 def parse_args():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--env", type=str, default="grid-v0")
+	parser.add_argument("--env", type=str, default="batsim-v0") # grid-v0
 	parser.add_argument("--seed", default=123, type=int)
 	parser.add_argument("--verbose", default=False, action="store_true")
 	parser.add_argument("--output_fn", type=str, default=None)

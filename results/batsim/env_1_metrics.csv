@@ -1,2 +1,0 @@
-makespan,mean_waiting_time,mean_turnaround_time,mean_slowdown,max_waiting_time,max_turnaround_time,max_slowdown,energy_consumed,total_slowdown,total_turnaround_time,total_waiting_time
-251.0,24.027272727272727,28.563636363636363,10.036534071988559,158.0,158.0,69.0,561970.0,1104.0187479187475,3142.0,2643.0
