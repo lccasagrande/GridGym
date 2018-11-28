@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from xml.dom import minidom
 from enum import Enum
@@ -201,10 +200,9 @@ class ResourceManager:
 
 	def _select_resources(self, nb_res, time):
 		state = self.get_view()
-		for t in range(self.time_window-time+1):
-			avail_resources = [r for r in range(self.nb_resources) if np.count_nonzero(state[t:t+time, r]) == 0]
-			if len(avail_resources) >= nb_res:
-				return avail_resources[0:nb_res], t
+		avail_resources = [r for r in range(self.nb_resources) if np.count_nonzero(state[0:time, r]) == 0]
+		if len(avail_resources) >= nb_res:
+			return avail_resources[0:nb_res], 0
 
 		raise UnavailableResourcesError("There is no resource available.")
 

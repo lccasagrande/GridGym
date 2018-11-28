@@ -120,7 +120,7 @@ class GridSimulator:
 
 
 class SimulatorHandler:
-	PLATFORM = "platforms/platform_hg_10.xml"
+	PLATFORM = "platforms/platform_hg_100.xml"
 	WORKLOAD_DIR = "workloads"
 	OUTPUT_DIR = "../results/batsim"
 
@@ -261,8 +261,57 @@ class SimulatorHandler:
 	def get_resource_state(self):
 		return self.resource_manager.get_view()
 
+	def get_compact_state(self):
+		state = np.zeros(shape=(self.nb_resources + self.job_slots * 2 + 2))
+		# RESOURCES
+		state[0:self.nb_resources] = [res.get_reserved_time() / float(15.) for k, res in
+		                              self.resource_manager.resources.items()]
+
+		# JOB SLOTS
+		start_idx = self.nb_resources
+		for j in self.jobs_manager.job_slots:
+			if j is not None:
+				state[start_idx] = j.requested_resources / float(self.nb_resources)
+				state[start_idx + 1] = j.requested_time / float(15.)
+			start_idx += 2
+
+		# BACKLOG
+		max_backlog_jobs = self.backlog_width * self.time_window
+		state[start_idx] = min(max_backlog_jobs, self.jobs_manager.nb_jobs_in_backlog) / float(max_backlog_jobs)
+
+		# LAST TIME
+		diff = min(self.max_tracking_time_since_last_job, self.current_time - self.time_since_last_new_job)
+		state[start_idx + 1] = diff / float(self.max_tracking_time_since_last_job)
+
+		return state
+
+	def get_compact_state2(self):
+		shape = (self.time_window, self.nb_resources + self.job_slots * 2 + self.backlog_width + 1)
+		state = np.zeros(shape=shape, dtype=np.float)
+
+		# RESOURCES
+		resource_end = self.nb_resources
+		state[:, 0:resource_end] = self.get_resource_state()
+
+		# JOB SLOTS
+		job_slot_end = resource_end
+		for j in self.jobs_manager.job_slots:
+			if j is not None:
+				state[0:j.requested_time, job_slot_end] = j.requested_resources / float(self.nb_resources)
+				state[0:j.requested_time, job_slot_end + 1] = 1.0
+			job_slot_end += 2
+
+		# BACKLOG
+		backlog_end = job_slot_end + self.backlog_width
+		state[:, job_slot_end:backlog_end] = self.get_backlog_state()
+
+		state[:, -1] = self.get_time_state()
+
+		# state = np.expand_dims(state, axis=2)
+
+		return state
+
 	def get_state(self):
-		assert self.time_window % self.time_slice == 0
 		shape = (self.time_window, self.nb_resources + self.job_slots * self.nb_resources + self.backlog_width + 1)
 		state = np.zeros(shape=shape, dtype=np.float)
 
@@ -272,21 +321,14 @@ class SimulatorHandler:
 
 		# JOB SLOTS
 		job_slot_end = self.nb_resources * self.job_slots + resource_end
-
-		# for i, job in enumerate(self.jobs_manager.job_slots):
-		#	if job is not None:
-		#		state[i, 0] = job.requested_resources / self.nb_resources
-		#		state[i, 1] = job.requested_time / self.time_window
-
 		state[:, resource_end:job_slot_end] = self.get_job_slot_state()
 
 		# BACKLOG
 		backlog_end = job_slot_end + self.backlog_width
 		state[:, job_slot_end:backlog_end] = self.get_backlog_state()
 
+		# LAST SUB TIME
 		state[:, -1] = self.get_time_state()
-
-		# state = np.expand_dims(state, axis=2)
 
 		return state
 
@@ -396,7 +438,7 @@ class BatsimHandler(SimulatorHandler):
 	def _start_simulator(self):
 		output_fn = SimulatorHandler.OUTPUT_DIR + "/bat_" + str(self.nb_simulation)
 		cmd = "batsim -s {} -p {} -w {} -v {} -E -e {}".format(self.protocol_manager.socket_endpoint, self._platform,
-		                                                 self._select_workload(), self.verbose, output_fn)
+		                                                       self._select_workload(), self.verbose, output_fn)
 
 		return subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
 
@@ -537,26 +579,3 @@ class GridSimulatorHandler(SimulatorHandler):
 			total_waiting_time=self.jobs_manager.total_waiting_time
 		)
 		super(GridSimulatorHandler, self)._handle_simulation_ends(metrics)
-
-# def get_job_slot_state(self):
-#	state = np.zeros(shape=(self.time_window, self.nb_resources * self.job_slots), dtype=np.float)
-#
-#	for i, job in enumerate(self.jobs_manager.job_slots):
-#		if job is not None:
-#			start_idx = i * self.nb_resources
-#			end_idx = start_idx + job.requested_resources
-#			frac_time, req_time = math.modf(job.requested_time / self.time_slice)
-#			state[0:int(req_time), start_idx:end_idx] = 1.
-#			if frac_time != 0:
-#				state[int(req_time), start_idx:end_idx] = frac_time
-#	return state
-
-# resource_state = self.resource_manager.get_view()
-# state = np.zeros(shape=(self.time_window, self.nb_resources))
-# start = 0
-# for init in range(0, resource_state.shape[0], self.time_slice):
-#	state[start, 0:self.nb_resources] = np.sum(resource_state[init:init + self.time_slice, 0:self.nb_resources],
-#	                                           axis=0) / self.time_slice
-#	start += 1
-#
-# return state
