@@ -4,11 +4,13 @@ This repository contains a grid-system simulator based on [**OpenAI Gym**](https
 
 ## Requirements
 
-You'll need Python 3.6 x64 to be able to run theses projects. 
+You'll need **Python 3** and **Docker** to be able to run theses projects. 
 
 If you do not have Python installed yet, it is recommended that you install the [Anaconda](https://www.anaconda.com/download/) distribution of Python, which has almost all packages required in these projects. 
 
-You can also install Python 3.6 x64 from [here](https://www.python.org/downloads/)
+You can also install Python 3 from [here](https://www.python.org/)
+
+Docker can be found here [here](https://www.docker.com/)
 
 ## Instructions
 
