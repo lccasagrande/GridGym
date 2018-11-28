@@ -1,4 +1,3 @@
-from gym import spaces
 from .batsim import BatsimHandler
 from .grid_env import GridEnv
 

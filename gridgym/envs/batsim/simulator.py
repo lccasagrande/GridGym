@@ -122,12 +122,12 @@ class GridSimulator:
 class SimulatorHandler:
 	PLATFORM = "platforms/platform_hg_10.xml"
 	WORKLOAD_DIR = "workloads"
-	OUTPUT_DIR = "../results/batsim"
+	OUTPUT_DIR = "../results"
 
 	def __init__(self, job_slots, time_window, backlog_width):
-		fullpath = os.path.join(os.path.dirname(__file__), "files")
-		if not os.path.exists(fullpath):
-			raise IOError("File %s does not exist" % fullpath)
+		self.files_path = os.path.join(os.path.dirname(__file__), "files")
+		if not os.path.exists(self.files_path):
+			raise IOError("File %s does not exist" % self.files_path)
 
 		self.time_window = time_window
 		self.job_slots = job_slots
@@ -137,8 +137,8 @@ class SimulatorHandler:
 		self.max_tracking_time_since_last_job = 10
 
 		os.makedirs(SimulatorHandler.OUTPUT_DIR, exist_ok=True)
-		self._platform = os.path.join(fullpath, SimulatorHandler.PLATFORM)
-		workloads_path = os.path.join(fullpath, SimulatorHandler.WORKLOAD_DIR)
+		self._platform = os.path.join(self.files_path, SimulatorHandler.PLATFORM)
+		workloads_path = os.path.join(self.files_path, SimulatorHandler.WORKLOAD_DIR)
 		self._workloads = [workloads_path + "/" + w for w in os.listdir(workloads_path) if w.endswith('.json')]
 		self.resource_manager = ResourceManager.from_xml(self._platform, self.time_window)
 		self.jobs_manager = SchedulerManager(self.job_slots)
@@ -357,6 +357,8 @@ class SimulatorHandler:
 
 
 class BatsimHandler(SimulatorHandler):
+	USE_DOCKER = True
+
 	def __init__(self, job_slots, time_window, backlog_width, verbose='quiet'):
 		self.protocol_manager = BatsimProtocolHandler()
 		self.running_simulation = False
@@ -436,10 +438,21 @@ class BatsimHandler(SimulatorHandler):
 		return x
 
 	def _start_simulator(self):
-		output_fn = SimulatorHandler.OUTPUT_DIR + "/bat_" + str(self.nb_simulation)
-		cmd = "batsim -s {} -p {} -w {} -v {} -E -e {}".format(self.protocol_manager.socket_endpoint, self._platform,
-		                                                       self._select_workload(), self.verbose, output_fn)
+		platform_file = self._platform
+		workload_file = self._select_workload()
 
+		if BatsimHandler.USE_DOCKER:
+			cmd = "docker run --net host -v {}:/batsim lccasagrande/batsim batsim".format(self.files_path)
+			platform_file = platform_file.replace(self.files_path + "/", "")
+			workload_file = workload_file.replace(self.files_path + "/", "")
+			output_fn = "results/bat_" + str(self.nb_simulation)
+		else:
+			cmd = "batsim"
+			output_fn = SimulatorHandler.OUTPUT_DIR + "/bat_" + str(self.nb_simulation)
+
+		cmd += " -s {} -p {} -w {} -v {} -E -e {}".format(
+			self.protocol_manager.socket_endpoint, platform_file,
+			workload_file, self.verbose, output_fn)
 		return subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
 
 	def _init_vars(self):

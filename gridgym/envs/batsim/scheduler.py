@@ -1,13 +1,8 @@
-import itertools
 import math
 import numpy as np
-import random
 from sortedcontainers import SortedList
 from collections import deque
-from matplotlib.colors import XKCD_COLORS as allcolors
 from enum import Enum
-from itertools import count
-import heapq
 
 
 class JobSlot():
