@@ -1,0 +1,411 @@
+<?xml version="1.0"?>
+<!DOCTYPE platform
+        SYSTEM 'http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd'>
+<platform version="4.1">
+    <zone id="AS0" routing="Full">
+        <host id="master_host" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="0" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="1" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="2" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="3" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="4" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="5" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="6" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="7" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="8" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="9" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="10" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="11" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="12" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="13" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="14" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="15" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="16" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="17" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="18" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="19" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="20" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="21" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="22" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="23" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="24" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="25" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="26" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="27" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="28" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="29" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="30" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="31" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="32" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="33" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="34" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="35" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="36" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="37" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="38" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="39" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="40" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="41" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="42" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="43" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="44" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="45" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="46" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="47" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="48" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="49" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="50" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="51" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="52" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="53" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="54" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="55" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="56" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="57" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="58" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="59" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="60" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="61" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="62" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="63" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="64" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="65" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="66" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="67" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="68" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="69" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="70" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="71" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="72" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="73" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="74" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="75" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="76" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="77" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="78" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="79" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="80" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="81" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="82" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="83" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="84" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="85" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="86" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="87" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="88" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="89" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="90" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="91" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="92" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="93" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="94" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="95" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="96" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="97" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="98" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+        <host id="99" pstate="1" speed="0,1.0Mf">
+            <prop id="watt_per_state" value="10:10,150.0:210.0"/>
+            <prop id="watt_off" value="10"/>
+        </host>
+    </zone>
+</platform>
