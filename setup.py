@@ -2,7 +2,7 @@ from setuptools import setup
 import sys
 
 CURRENT_PYTHON = float("{}.{}".format(sys.version_info.major, sys.version_info.minor))
-REQUIRED_PYTHON = 3.6
+REQUIRED_PYTHON = 3
 
 if CURRENT_PYTHON < REQUIRED_PYTHON:
 	sys.stderr.write("""
