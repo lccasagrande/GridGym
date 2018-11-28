@@ -20,7 +20,6 @@ class GridEnv(gym.Env):
 	def step(self, action):
 		assert self.simulator.is_running, "Simulation is not running."
 		mean_slow_before = self.simulator.jobs_manager.runtime_mean_slowdown
-		#time_before = self.simulator.current_time
 
 		try:
 			self.simulator.schedule(action - 1)
@@ -28,11 +27,9 @@ class GridEnv(gym.Env):
 			self.simulator.schedule(-1)
 
 		obs = self._get_obs()
-		reward = -1 * (self.simulator.jobs_manager.runtime_mean_slowdown - mean_slow_before)
-		#reward = -1 * (self.simulator.current_time - time_before)
-		#reward = 0 if not done else -1*self.simulator.metrics['mean_slowdown']
 		done = not self.simulator.is_running
 		info = self._get_info()
+		reward = -1 * (self.simulator.jobs_manager.runtime_mean_slowdown - mean_slow_before)
 
 		return obs, reward, done, info
 
@@ -60,7 +57,7 @@ class GridEnv(gym.Env):
 		return dict() if self.simulator.is_running else self.simulator.metrics
 
 	def _get_obs(self):
-		return self.simulator.get_compact_state2()
+		return self.simulator.get_state()
 
 	def _print(self):
 		stats = "\rSubmitted: {:5} Completed: {:5} | Running: {:5} Waiting: {:5}".format(
@@ -134,5 +131,5 @@ class GridEnv(gym.Env):
 		plot_job_state()
 		plot_backlog()
 		plot_last_time()
-		# plt.tight_layout()
+		plt.tight_layout()
 		plt.pause(0.01)

@@ -2,10 +2,10 @@ from gym.envs.registration import register
 
 register(
 	id='grid-v0',
-	entry_point='GridGym.envs:GridEnv',
+	entry_point='gridgym.envs:GridEnv',
 )
 
 register(
 	id='batsim-v0',
-	entry_point='GridGym.envs:BatsimEnv',
+	entry_point='gridgym.envs:BatsimEnv',
 )

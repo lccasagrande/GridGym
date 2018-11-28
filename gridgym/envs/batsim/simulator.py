@@ -120,7 +120,7 @@ class GridSimulator:
 
 
 class SimulatorHandler:
-	PLATFORM = "platforms/platform_hg_100.xml"
+	PLATFORM = "platforms/platform_hg_10.xml"
 	WORKLOAD_DIR = "workloads"
 	OUTPUT_DIR = "../results/batsim"
 
