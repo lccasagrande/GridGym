@@ -8,11 +8,13 @@ import numpy as np
 
 class GridEnv(gym.Env):
 	JOB_SLOTS = 10
-	TIME_WINDOW = 20
+	TIME_WINDOW = 600
 	BACKLOG_WIDTH = 3
+	TIME_SLICE = 60
 
 	def __init__(self):
-		self.simulator = GridSimulatorHandler(GridEnv.JOB_SLOTS, GridEnv.TIME_WINDOW, GridEnv.BACKLOG_WIDTH)
+		self.simulator = GridSimulatorHandler(GridEnv.JOB_SLOTS, GridEnv.TIME_WINDOW, GridEnv.TIME_SLICE,
+		                                      GridEnv.BACKLOG_WIDTH)
 		self.action_space = spaces.Discrete(GridEnv.JOB_SLOTS + 1)
 		state = self._get_obs()
 		self.observation_space = spaces.Box(low=0, high=1, shape=state.shape, dtype=state.dtype)
@@ -38,7 +40,7 @@ class GridEnv(gym.Env):
 		self.simulator.start()
 		return self._get_obs()
 
-	def render(self, mode='human'):
+	def render(self, mode='console'):
 		if mode == 'human':
 			self._plot()
 		elif mode == 'console':
@@ -57,7 +59,7 @@ class GridEnv(gym.Env):
 		return dict() if self.simulator.is_running else self.simulator.metrics
 
 	def _get_obs(self):
-		return self.simulator.get_state()
+		return self.simulator.get_easy_state()
 
 	def _print(self):
 		stats = "\rSubmitted: {:5} Completed: {:5} | Running: {:5} Waiting: {:5}".format(
@@ -74,12 +76,12 @@ class GridEnv(gym.Env):
 			plt.imshow(resource_state, interpolation='nearest', vmin=0, vmax=1, aspect='auto')
 			ax = plt.gca()
 			ax.set_xticks(range(self.simulator.nb_resources))
-			ax.set_yticks(range(GridEnv.TIME_WINDOW))
+			ax.set_yticks(range(self.simulator.state_time_window))
 			ax.set_ylabel("Time Window")
 			ax.set_xlabel("Id")
 			ax.set_xticks(
 				np.arange(.5, self.simulator.nb_resources, 1), minor=True)
-			ax.set_yticks(np.arange(.5, GridEnv.TIME_WINDOW, 1), minor=True)
+			ax.set_yticks(np.arange(.5, self.simulator.state_time_window, 1), minor=True)
 			ax.set_aspect('auto')
 			ax.set_title("RES")
 			ax.grid(which='minor', color='w', linestyle='-', linewidth=1)
@@ -87,16 +89,16 @@ class GridEnv(gym.Env):
 		def plot_job_state():
 			jobs = self.simulator.get_job_slot_state()
 			slot = 1
-			for start_idx in range(0, jobs.shape[1], self.simulator.nb_resources):
-				job_state = jobs[:, start_idx:start_idx + self.simulator.nb_resources]
+			for start_idx in range(0, jobs.shape[1], 2):
+				job_state = jobs[:, start_idx:start_idx + 2]
 				plt.subplot(1, 1 + GridEnv.JOB_SLOTS + 2, slot + 1)
 				plt.imshow(job_state, interpolation='nearest', vmin=0, vmax=1, aspect='auto')
 				ax = plt.gca()
 				ax.set_xticks([], [])
 				ax.set_yticks([], [])
 				ax.set_xticks(
-					np.arange(.5, self.simulator.nb_resources, 1), minor=True)
-				ax.set_yticks(np.arange(.5, GridEnv.TIME_WINDOW, 1), minor=True)
+					np.arange(.5, 2, 1), minor=True)
+				ax.set_yticks(np.arange(.5, self.simulator.state_time_window, 1), minor=True)
 				ax.set_title("Slot {}".format(slot))
 				ax.grid(which='minor', color='w', linestyle='-', linewidth=1)
 				slot += 1
@@ -110,7 +112,7 @@ class GridEnv(gym.Env):
 			ax.set_xticks(range(GridEnv.BACKLOG_WIDTH))
 			ax.set_yticks([], [])
 			ax.set_xticks(np.arange(.5, GridEnv.BACKLOG_WIDTH, 1), minor=True)
-			ax.set_yticks(np.arange(.5, GridEnv.TIME_WINDOW, 1), minor=True)
+			ax.set_yticks(np.arange(.5, self.simulator.state_time_window, 1), minor=True)
 			ax.set_title("Queue")
 			ax.grid(which='minor', color='w', linestyle='-', linewidth=1)
 
@@ -122,7 +124,7 @@ class GridEnv(gym.Env):
 			ax = plt.gca()
 			ax.set_xticks([], [])
 			ax.set_yticks([], [])
-			ax.set_yticks(np.arange(.5, GridEnv.TIME_WINDOW, 1), minor=True)
+			ax.set_yticks(np.arange(.5, self.simulator.state_time_window, 1), minor=True)
 			ax.set_title("Time")
 			ax.grid(which='minor', color='w', linestyle='-', linewidth=1)
 

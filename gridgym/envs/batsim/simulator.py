@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import subprocess
+import math
 from sortedcontainers import SortedList
 from .scheduler import Job, SchedulerManager
 from .network import BatsimEvent, BatsimProtocolHandler
@@ -120,20 +121,22 @@ class GridSimulator:
 
 
 class SimulatorHandler:
-	PLATFORM = "platforms/platform_hg_10.xml"
+	PLATFORM = "platforms/platform_hg_500.xml"
 	WORKLOAD_DIR = "workloads"
 	OUTPUT_DIR = "../results"
 
-	def __init__(self, job_slots, time_window, backlog_width):
+	def __init__(self, job_slots, time_window, time_slice, backlog_width):
+		assert time_window % time_slice == 0
 		self.files_path = os.path.join(os.path.dirname(__file__), "files")
 		if not os.path.exists(self.files_path):
 			raise IOError("File %s does not exist" % self.files_path)
 
 		self.time_window = time_window
+		self.time_slice = time_slice
+		self.state_time_window = int(self.time_window / self.time_slice)
 		self.job_slots = job_slots
 		self.backlog_width = backlog_width
 		self.nb_simulation = 0
-		self.time_slice = 1
 		self.max_tracking_time_since_last_job = 10
 
 		os.makedirs(SimulatorHandler.OUTPUT_DIR, exist_ok=True)
@@ -146,7 +149,7 @@ class SimulatorHandler:
 
 	@property
 	def nb_jobs_waiting(self):
-		return self.jobs_manager.nb_jobs_in_backlog + self.jobs_manager.job_slots.lenght
+		return self.jobs_manager.nb_jobs_in_backlog + self.jobs_manager.nb_jobs_in_slots
 
 	@property
 	def nb_jobs_running(self):
@@ -232,19 +235,33 @@ class SimulatorHandler:
 			self._handle_requested_call(event.timestamp)
 
 	def get_job_slot_state(self):
-		s = np.zeros(shape=(self.time_window, self.nb_resources * self.job_slots), dtype=np.uint8)
+		s = np.zeros(shape=(self.state_time_window, 2 * self.job_slots), dtype=np.float)
+		#
+		# for i, job in enumerate(self.jobs_manager.job_slots):
+		#	if job is not None:
+		#		start_idx = i * self.nb_resources
+		#		end_idx = start_idx + job.requested_resources
+		#		s[0:job.requested_time, start_idx:end_idx] = 1
+		i = 0
+		for j in self.jobs_manager.job_slots:
+			if j is not None:
+				frac, whole = math.modf(j.requested_time / self.time_slice)
+				job_time = [1.0 for _ in range(int(whole))]
+				if frac != 0:
+					job_time.append(frac)
+				req_res = j.requested_resources / float(self.nb_resources)
+				lenght = len(job_time)
+				job_res = [req_res for _ in range(lenght)]
 
-		for i, job in enumerate(self.jobs_manager.job_slots):
-			if job is not None:
-				start_idx = i * self.nb_resources
-				end_idx = start_idx + job.requested_resources
-				s[0:job.requested_time, start_idx:end_idx] = 1
+				s[0:lenght, i] = job_res
+				s[0:lenght, i + 1] = job_time
+			i += 2
 		return s
 
 	def get_backlog_state(self):
-		s = np.zeros(shape=(self.time_window, self.backlog_width), dtype=np.uint8)
+		s = np.zeros(shape=(self.state_time_window, self.backlog_width), dtype=np.uint8)
 		t, i = 0, 0
-		nb_jobs = min(self.backlog_width * self.time_window, self.jobs_manager.nb_jobs_in_backlog)
+		nb_jobs = min(self.backlog_width * self.state_time_window, self.jobs_manager.nb_jobs_in_backlog)
 		for _ in range(nb_jobs):
 			s[t, i] = 1
 			i += 1
@@ -256,10 +273,26 @@ class SimulatorHandler:
 	def get_time_state(self):
 		diff = min(self.max_tracking_time_since_last_job, self.current_time - self.time_since_last_new_job)
 		v = diff / float(self.max_tracking_time_since_last_job)
-		return np.full(shape=self.time_window, fill_value=v, dtype=np.float)
+		return np.full(shape=self.state_time_window, fill_value=v, dtype=np.float)
 
 	def get_resource_state(self):
-		return self.resource_manager.get_view()
+		res_state = self.resource_manager.get_view()
+		res_state = np.array(
+			[np.mean(res_state[t:t + self.time_slice, :], axis=0) for t in range(0, self.time_window, self.time_slice)])
+		return res_state
+
+	def get_easy_state(self):
+		state = np.zeros(shape=(self.nb_resources + self.job_slots * 2))
+		# RESOURCES
+		state[0:self.nb_resources] = [res.is_computing for k, res in self.resource_manager.resources.items()]
+
+		i = self.nb_resources
+		for j in self.jobs_manager.job_slots:
+			if j is not None:
+				state[i] = j.requested_resources
+				state[i + 1] = j.requested_time
+			i += 2
+		return state
 
 	def get_compact_state(self):
 		state = np.zeros(shape=(self.nb_resources + self.job_slots * 2 + 2))
@@ -285,34 +318,8 @@ class SimulatorHandler:
 
 		return state
 
-	def get_compact_state2(self):
-		shape = (self.time_window, self.nb_resources + self.job_slots * 2 + self.backlog_width + 1)
-		state = np.zeros(shape=shape, dtype=np.float)
-
-		# RESOURCES
-		resource_end = self.nb_resources
-		state[:, 0:resource_end] = self.get_resource_state()
-
-		# JOB SLOTS
-		job_slot_end = resource_end
-		for j in self.jobs_manager.job_slots:
-			if j is not None:
-				state[0:j.requested_time, job_slot_end] = j.requested_resources / float(self.nb_resources)
-				state[0:j.requested_time, job_slot_end + 1] = 1.0
-			job_slot_end += 2
-
-		# BACKLOG
-		backlog_end = job_slot_end + self.backlog_width
-		state[:, job_slot_end:backlog_end] = self.get_backlog_state()
-
-		state[:, -1] = self.get_time_state()
-
-		# state = np.expand_dims(state, axis=2)
-
-		return state
-
 	def get_state(self):
-		shape = (self.time_window, self.nb_resources + self.job_slots * self.nb_resources + self.backlog_width + 1)
+		shape = (self.state_time_window, self.nb_resources + self.job_slots * 2 + self.backlog_width + 1)
 		state = np.zeros(shape=shape, dtype=np.float)
 
 		# RESOURCES
@@ -320,7 +327,7 @@ class SimulatorHandler:
 		state[:, 0:resource_end] = self.get_resource_state()
 
 		# JOB SLOTS
-		job_slot_end = self.nb_resources * self.job_slots + resource_end
+		job_slot_end = 2 * self.job_slots + resource_end
 		state[:, resource_end:job_slot_end] = self.get_job_slot_state()
 
 		# BACKLOG
@@ -357,15 +364,15 @@ class SimulatorHandler:
 
 
 class BatsimHandler(SimulatorHandler):
-	USE_DOCKER = True
+	USE_DOCKER = False
 
-	def __init__(self, job_slots, time_window, backlog_width, verbose='quiet'):
+	def __init__(self, job_slots, time_window, time_slice, backlog_width, verbose='quiet'):
 		self.protocol_manager = BatsimProtocolHandler()
 		self.running_simulation = False
 		self._simulator_process = None
 		self.verbose = verbose
 		self._workload_idx = 0
-		super(BatsimHandler, self).__init__(job_slots, time_window, backlog_width)
+		super(BatsimHandler, self).__init__(job_slots, time_window, time_slice, backlog_width)
 
 	@property
 	def current_time(self):
@@ -381,8 +388,6 @@ class BatsimHandler(SimulatorHandler):
 			super(BatsimHandler, self).schedule(job_pos)
 			self._start_ready_jobs()
 			return
-		else:
-			self.alarm_time = self.current_time + 1
 
 		self._checkpoint()
 
@@ -417,8 +422,8 @@ class BatsimHandler(SimulatorHandler):
 	def _wait_state_change(self):
 		# slots_occuped = self.jobs_manager.nb_jobs_in_slots
 		self._update_state()
-		while self.running_simulation and self.alarm_time != -1:  # and self.jobs_manager.nb_jobs_in_slots == slots_occuped:
-			self._checkpoint()
+		while self.running_simulation and (self.alarm_time != -1 or self.jobs_manager.is_empty):  # and self.jobs_manager.nb_jobs_in_slots == slots_occuped:
+			#self._checkpoint()
 			self._update_state()
 
 	def _start_job(self, job):
@@ -506,9 +511,6 @@ class BatsimHandler(SimulatorHandler):
 
 			self.jobs_manager.update_state(time_passed)
 			self.resource_manager.update_state(time_passed)
-			res = self.resource_manager.shut_down_unused()
-			if len(res) != 0:
-				self.protocol_manager.set_resource_pstate(res, Resource.PowerState.SHUT_DOWN)
 
 		for event in events:
 			self._handle_event(event)
@@ -519,8 +521,8 @@ class BatsimHandler(SimulatorHandler):
 
 
 class GridSimulatorHandler(SimulatorHandler):
-	def __init__(self, job_slots, time_window, backlog_width):
-		super(GridSimulatorHandler, self).__init__(job_slots, time_window, backlog_width)
+	def __init__(self, job_slots, time_window, time_slice, backlog_width):
+		super(GridSimulatorHandler, self).__init__(job_slots, time_window, time_slice, backlog_width)
 		self.simulation_manager = GridSimulator(self._workloads, self.jobs_manager)
 
 	def schedule(self, job_pos):
