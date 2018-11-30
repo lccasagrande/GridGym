@@ -511,6 +511,11 @@ class BatsimHandler(SimulatorHandler):
 
 			self.jobs_manager.update_state(time_passed)
 			self.resource_manager.update_state(time_passed)
+			
+			res = self.resource_manager.shut_down_unused()
+			if len(res) != 0:
+				self.protocol_manager.set_resource_pstate(res, Resource.PowerState.SHUT_DOWN)
+
 
 		for event in events:
 			self._handle_event(event)

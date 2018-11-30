@@ -40,7 +40,7 @@ class GridEnv(gym.Env):
 		self.simulator.start()
 		return self._get_obs()
 
-	def render(self, mode='console'):
+	def render(self, mode='human'):
 		if mode == 'human':
 			self._plot()
 		elif mode == 'console':
@@ -59,7 +59,7 @@ class GridEnv(gym.Env):
 		return dict() if self.simulator.is_running else self.simulator.metrics
 
 	def _get_obs(self):
-		return self.simulator.get_easy_state()
+		return self.simulator.get_state()
 
 	def _print(self):
 		stats = "\rSubmitted: {:5} Completed: {:5} | Running: {:5} Waiting: {:5}".format(
