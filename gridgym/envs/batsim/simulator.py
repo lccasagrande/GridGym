@@ -12,12 +12,9 @@ from .resource import ResourceManager
 
 
 class GridSimulator:
-	def __init__(self, workloads, jobs_manager):
+	def __init__(self, jobs_manager):
 		self.jobs_manager = jobs_manager
-		self.workloads = workloads
-		self.workload_idx = 0
-		self.workload_nb_jobs = -1
-		self.curr_workload = None
+		self.workload = []
 		self.workload_nb_jobs = -1
 		self.jobs_submmited = -1
 		self.jobs_completed = -1
@@ -25,39 +22,12 @@ class GridSimulator:
 		self.current_time = -1
 
 	def close(self):
-		self.curr_workload = None
+		self.workload = []
 		self.workload_nb_jobs = -1
 		self.jobs_submmited = -1
 		self.jobs_completed = -1
 		self.running = False
 		self.current_time = -1
-
-	def _load_workload(self, workload):
-		def get_jobs(fn):
-			with open(fn, 'r') as f:
-				data = json.load(f)
-				jobs = SortedList(key=lambda f: f.submit_time)
-				for j in data['jobs']:
-					jobs.add(value=Job(
-						j['id'],
-						j['subtime'],
-						j['walltime'],
-						j['res'],
-						j['profile'],
-						-1,
-						"UNKNOWN"))
-			return jobs
-
-		return get_jobs(workload)
-
-	def select_workload(self):
-		if len(self.workloads) == self.workload_idx:
-			self.workload_idx = 0
-			np.random.shuffle(self.workloads)
-
-		w = self.workloads[self.workload_idx]
-		self.workload_idx += 1
-		return w
 
 	def get_jobs_completed(self, time):
 		for job in self.jobs_manager.jobs_running:
@@ -65,8 +35,8 @@ class GridSimulator:
 				yield job
 
 	def get_jobs_submmited(self, time):
-		while len(self.curr_workload) > 0 and self.curr_workload[0].submit_time == time:
-			yield self.curr_workload.pop(0)
+		while len(self.workload) > 0 and self.workload[0].submit_time == time:
+			yield self.workload.pop(0)
 
 	def reject_job(self, job_id):
 		self.jobs_completed += 1
@@ -98,12 +68,6 @@ class GridSimulator:
 			alloc=job.allocation)
 		return BatsimEvent(time, "JOB_COMPLETED", data)
 
-	def get_simulation_ended_event(self, time):
-		return BatsimEvent(time, "SIMULATION_ENDS", dict())
-
-	def get_simulation_begins_event(self, time):
-		return BatsimEvent(time, "SIMULATION_BEGINS", dict())
-
 	@property
 	def simulation_ended(self):
 		return self.jobs_submmited == self.workload_nb_jobs and self.jobs_completed == self.workload_nb_jobs
@@ -111,15 +75,28 @@ class GridSimulator:
 	def proceed_time(self, t):
 		self.current_time += t
 
-	def start(self, workload_fn=None):
-		workload = self.select_workload() if workload_fn is None else workload_fn
-		self.curr_workload = self._load_workload(workload)
-		self.workload_nb_jobs = len(self.curr_workload)
-		self.current_time = self.curr_workload[0].submit_time
+	def start(self, workload):
+		def get_jobs():
+			with open(workload, 'r') as f:
+				data = json.load(f)
+				jobs = SortedList(key=lambda t: t.submit_time)
+				for j in data['jobs']:
+					jobs.add(value=Job(
+						j['id'],
+						j['subtime'],
+						j['walltime'],
+						j['res'],
+						j['profile'],
+						-1,
+						"UNKNOWN"))
+			return jobs
+
+		self.workload = get_jobs()
+		self.workload_nb_jobs = len(self.workload)
+		self.current_time = self.workload[0].submit_time
 		self.jobs_submmited = 0
 		self.jobs_completed = 0
 		self.running = True
-		return workload
 
 	def read_events(self):
 		assert self.running
@@ -135,7 +112,7 @@ class GridSimulator:
 
 		if self.simulation_ended:
 			self.running = False
-			events.append(self.get_simulation_ended_event(self.current_time))
+			events.append(BatsimEvent(self.current_time, "SIMULATION_ENDS", dict()))
 
 		return events
 
@@ -157,6 +134,7 @@ class SimulatorHandler:
 		self.img_time_window = 60
 		self.nb_simulation = 0
 		self.max_tracking_time_since_last_job = 10
+		self._workload_idx = 0
 		self.time_since_last_new_job = 0
 		self.metrics = {}
 		self._workloads = self._get_workloads(self.files_path)
@@ -302,6 +280,15 @@ class SimulatorHandler:
 			i += 2
 		return state
 
+	def select_workload(self):
+		if len(self._workloads) == self._workload_idx:
+			self._workload_idx = 0
+			np.random.shuffle(self._workloads)
+
+		workload = self._workloads[self._workload_idx]
+		self._workload_idx += 1
+		return workload
+
 	def start(self, workload_fn):
 		self.job_manager.load(workload_fn)
 
@@ -348,7 +335,7 @@ class BatsimHandler(SimulatorHandler):
 
 	def schedule(self, job_pos):
 		assert self.running_simulation, "Simulation is not running."
-		if job_pos != -1:  # Try to schedule job
+		if job_pos != -1:
 			super(BatsimHandler, self).schedule(job_pos)
 			self._start_ready_jobs()
 			return
@@ -375,7 +362,7 @@ class BatsimHandler(SimulatorHandler):
 		super(BatsimHandler, self).start(workload_fn)
 		self.protocol_manager.start()
 		while self.job_manager.is_empty:
-			self._update_state()
+			self._handle_events()
 
 		assert self.is_running, "An error ocurred during simulator starting."
 
@@ -385,27 +372,18 @@ class BatsimHandler(SimulatorHandler):
 			self._alarm_is_set = True
 
 	def _wait_state_change(self):
-		self._update_state()
+		self._handle_events()
 		while self.running_simulation and (self.alarm_time != -1 or self.job_manager.is_empty):
-			self._update_state()
+			self._handle_events()
 
 	def _start_job(self, job):
 		self.resource_manager.start_job(job)
 		self.job_manager.on_job_started(job.id, self.current_time)
 		self.protocol_manager.start_job(job.id, job.allocation)
 
-	def _select_workload(self):
-		if len(self._workloads) == self._workload_idx:
-			self._workload_idx = 0
-			np.random.shuffle(self._workloads)
-
-		x = self._workloads[self._workload_idx]
-		self._workload_idx += 1
-		return x
-
 	def _start_simulator(self, workload_fn):
 		platform_file = self._platform
-		workload_file = self._select_workload() if workload_fn is None else workload_fn
+		workload_file = self.select_workload() if workload_fn is None else workload_fn
 
 		if BatsimHandler.USE_DOCKER:
 			cmd = "docker run --net host -v {}:/batsim lccasagrande/batsim batsim".format(self.files_path)
@@ -461,7 +439,7 @@ class BatsimHandler(SimulatorHandler):
 		assert not self.is_running, "A simulation is already running (is more than one instance of Batsim active?!)"
 		self.running_simulation = True
 
-	def _update_state(self):
+	def _handle_events(self):
 		self.protocol_manager.send_events()
 
 		old_time = self.current_time
@@ -488,7 +466,7 @@ class BatsimHandler(SimulatorHandler):
 class GridSimulatorHandler(SimulatorHandler):
 	def __init__(self, nb_job_slots, time_slice, backlog_width):
 		super(GridSimulatorHandler, self).__init__(nb_job_slots, time_slice, backlog_width)
-		self.simulation_manager = GridSimulator(self._workloads, self.job_manager)
+		self.simulation_manager = GridSimulator(self.job_manager)
 
 	def schedule(self, job_pos):
 		assert self.is_running, "Simulation is not running."
@@ -500,7 +478,7 @@ class GridSimulatorHandler(SimulatorHandler):
 
 		self._start_ready_jobs()
 
-		self._update_state()
+		self._handle_events()
 
 	@property
 	def current_time(self):
@@ -512,7 +490,8 @@ class GridSimulatorHandler(SimulatorHandler):
 
 	def start(self, workload_fn=None):
 		assert not self.is_running, "A simulation is already running."
-		workload = self.simulation_manager.start(workload_fn)
+		workload = workload_fn if workload_fn is not None else self.select_workload()
+		self.simulation_manager.start(workload)
 		super(GridSimulatorHandler, self).start(workload)
 		self.reset()
 		self._wait_state_change()
@@ -530,17 +509,17 @@ class GridSimulatorHandler(SimulatorHandler):
 		self.simulation_manager.reject_job(job_id)
 
 	def _wait_state_change(self):
-		self._update_state()
+		self._handle_events()
 		while self.is_running and self.job_manager.is_empty:
 			self._proceed_time()
-			self._update_state()
+			self._handle_events()
 
 	def _proceed_time(self):
 		self.simulation_manager.proceed_time(1)
 		self.job_manager.update_state(1)
 		self.resource_manager.update_state(1)
 
-	def _update_state(self):
+	def _handle_events(self):
 		events = self.simulation_manager.read_events()
 		for event in events:
 			self._handle_event(event)
