@@ -38,7 +38,7 @@ class JobSlot:
 	def remove_at(self, slot):
 		job = self.slots[slot]
 		self.slots[slot] = None
-		self.slots_free.add(value=slot)
+		self.slots_free.add(slot)
 		return job
 
 	def at(self, slot):

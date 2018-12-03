@@ -81,7 +81,7 @@ class GridSimulator:
 				data = json.load(f)
 				jobs = SortedList(key=lambda t: t.submit_time)
 				for j in data['jobs']:
-					jobs.add(value=Job(
+					jobs.add(Job(
 						j['id'],
 						j['subtime'],
 						j['walltime'],
