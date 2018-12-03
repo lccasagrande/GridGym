@@ -7,43 +7,43 @@
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="0" pstate="0" speed="0,1.0Mf">
+    <host id="0" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="1" pstate="0" speed="0,1.0Mf">
+    <host id="1" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="2" pstate="0" speed="0,1.0Mf">
+    <host id="2" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="3" pstate="0" speed="0,1.0Mf">
+    <host id="3" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="4" pstate="0" speed="0,1.0Mf">
+    <host id="4" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="5" pstate="0" speed="0,1.0Mf">
+    <host id="5" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="6" pstate="0" speed="0,1.0Mf">
+    <host id="6" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="7" pstate="0" speed="0,1.0Mf">
+    <host id="7" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="8" pstate="0" speed="0,1.0Mf">
+    <host id="8" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>
-    <host id="9" pstate="0" speed="0,1.0Mf">
+    <host id="9" pstate="1" speed="0,1.0Mf">
       <prop id="watt_per_state" value="10:10,200.0:230.0"/>
       <prop id="watt_off" value="10"/>
     </host>

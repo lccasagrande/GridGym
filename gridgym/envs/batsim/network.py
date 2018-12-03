@@ -1,7 +1,7 @@
 import json
 import socket
 import zmq
-from .scheduler import Job
+from .job import Job
 
 
 class BatsimProtocolHandler:

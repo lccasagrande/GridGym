@@ -11,21 +11,16 @@ NB_JOB_SLOTS = 10
 
 
 class SJFAgent:
-	def __init__(self, seed):
-		self.seed = seed
-		np.random.seed(seed)
-		random.seed(seed)
-
 	def act(self, state):
 		def get_avail_resources():
-			return NB_RESOURCES - np.count_nonzero(state[0, 0:NB_RESOURCES])
+			return NB_RESOURCES - np.count_nonzero(state[0:NB_RESOURCES])
 
 		def get_jobs():
-			slot, jobs, jobs_state = 1, [], state[:, NB_RESOURCES:NB_RESOURCES + (NB_JOB_SLOTS * NB_RESOURCES)]
-			for i in range(0, NB_JOB_SLOTS * NB_RESOURCES, NB_RESOURCES):
-				if jobs_state[0, i] != 0:  # There is a job in the job slot
-					res = np.count_nonzero(jobs_state[0, i:i + NB_RESOURCES])
-					time = np.count_nonzero(jobs_state[:, i])
+			slot, jobs, jobs_state = 1, [], state[NB_RESOURCES:NB_RESOURCES + NB_JOB_SLOTS * 2]
+			for i in range(0, NB_JOB_SLOTS * 2, 2):
+				if jobs_state[i] != 0:  # There is a job in the job slot
+					res = jobs_state[i]
+					time = np.sum(jobs_state[i + 1])
 					jobs.append((res, time, slot))
 				slot += 1
 			return jobs
@@ -45,7 +40,8 @@ class SJFAgent:
 		ob = env.reset()
 		reward, steps, done, info = 0.0, 0, False, {}
 		while not done:
-			if visualize:  env.render()
+			if visualize:
+				env.render()
 			action = self.act(ob)
 			ob, r, done, info = env.step(action)
 			reward += r
@@ -60,8 +56,9 @@ class SJFAgent:
 
 
 def run(args):
-	agent = SJFAgent(seed=args.seed)
+	agent = SJFAgent()
 	env = gym.make(args.env)
+	env.seed(args.seed)
 	results = agent.evaluate(env, args.visualize, args.verbose)
 	if args.output_fn is not None and results:
 		pd.DataFrame([results]).to_csv(args.output, index=False)
@@ -69,9 +66,9 @@ def run(args):
 
 def parse_args():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--env", type=str, default="batsim-v0") # grid-v0
+	parser.add_argument("--env", type=str, default="grid-v0")  # grid-v0
 	parser.add_argument("--seed", default=123, type=int)
-	parser.add_argument("--verbose", default=False, action="store_true")
+	parser.add_argument("--verbose", default=True, action="store_true")
 	parser.add_argument("--output_fn", type=str, default=None)
 	parser.add_argument("--visualize", default=False, action="store_true")
 	return parser.parse_args()

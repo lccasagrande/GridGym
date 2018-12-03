@@ -1,3 +1,3 @@
 from .simulator import BatsimHandler, GridSimulatorHandler
-from .scheduler import InsufficientResourcesError, InvalidJobError
-from .resource import InvalidPowerStateError, UnavailableResourcesError
+from .job import InvalidJobError
+from .resource import UnavailableResourcesError
