@@ -175,9 +175,25 @@ class SimulatorHandler:
 		return [workloads_path + "/" + w for w in os.listdir(workloads_path) if w.endswith('.json')]
 
 	def schedule(self, job_pos):
-		job = self.job_manager.get_job_and_throw(job_pos)
-		self.resource_manager.allocate_job_and_throw(job)
-		self.job_manager.on_job_allocated(job_pos)
+		assert self.is_running, "Simulation is not running."
+		if job_pos != -1:
+			job = self.job_manager.get_job_and_throw(job_pos)
+			self.resource_manager.allocate_job_and_throw(job)
+			self.job_manager.on_job_allocated(job_pos)
+			self._start_ready_jobs()
+			return
+
+		self._proceed_time()
+
+		self._start_ready_jobs()
+
+		self._wait_state_change()
+
+	def _wait_state_change(self):
+		raise NotImplementedError()
+
+	def _proceed_time(self):
+		raise NotImplementedError()
 
 	def _start_ready_jobs(self):
 		for job in self.resource_manager.get_jobs():
@@ -208,7 +224,22 @@ class SimulatorHandler:
 			self._reject_job(data['job_id'])
 
 	def _handle_simulation_ends(self, data):
-		self.metrics = data
+		self.metrics = dict(
+			makespan=self.job_manager.last_job.finish_time,
+			mean_waiting_time=self.job_manager.total_waiting_time / self.job_manager.nb_jobs_submitted,
+			mean_turnaround_time=self.job_manager.total_turnaround_time / self.job_manager.nb_jobs_submitted,
+			mean_slowdown=self.job_manager.runtime_mean_slowdown,
+			max_waiting_time=self.job_manager.max_waiting_time,
+			max_turnaround_time=self.job_manager.max_turnaround_time,
+			max_slowdown=self.job_manager.max_slowdown_time,
+			energy_consumed=self.resource_manager.energy_consumed,
+			nb_jobs_killed=self.job_manager.nb_jobs_killed,
+			nb_jobs_finished=self.job_manager.nb_jobs_finished,
+			nb_jobs_success=self.job_manager.nb_jobs_success,
+			total_slowdown=self.job_manager.total_slowdown,
+			total_turnaround_time=self.job_manager.total_turnaround_time,
+			total_waiting_time=self.job_manager.total_waiting_time
+		)
 		self._export_metrics()
 
 	def _handle_simulation_begins(self, data):
@@ -268,9 +299,8 @@ class SimulatorHandler:
 		return res_state
 
 	def get_state(self):
-		state = np.zeros(shape=(self.nb_resources + self.nb_job_slots * 2))
-		# RESOURCES
-		state[0:self.nb_resources] = [res.is_computing for res in self.resource_manager.resources]
+		state = np.zeros(shape=(self.nb_resources + self.nb_job_slots * 2), dtype=np.float)
+		state[0:self.nb_resources] = [res.get_reserved_time() for res in self.resource_manager.resources]
 
 		i = self.nb_resources
 		for j in self.job_manager.job_slots:
@@ -296,7 +326,8 @@ class SimulatorHandler:
 		raise NotImplementedError()
 
 	def _start_job(self, job):
-		raise NotImplementedError()
+		self.resource_manager.start_job(job)
+		self.job_manager.on_job_started(job.id, self.current_time)
 
 	def _reject_job(self, job_id):
 		raise NotImplementedError()
@@ -322,7 +353,6 @@ class BatsimHandler(SimulatorHandler):
 		self._simulator_process = None
 		self.verbose = verbose
 		self._workload_idx = 0
-		self.alarm_time = -1
 		super(BatsimHandler, self).__init__(nb_job_slots, time_slice, backlog_width)
 
 	@property
@@ -332,19 +362,6 @@ class BatsimHandler(SimulatorHandler):
 	@property
 	def is_running(self):
 		return self.running_simulation
-
-	def schedule(self, job_pos):
-		assert self.running_simulation, "Simulation is not running."
-		if job_pos != -1:
-			super(BatsimHandler, self).schedule(job_pos)
-			self._start_ready_jobs()
-			return
-
-		self._checkpoint()
-
-		self._start_ready_jobs()
-
-		self._wait_state_change()
 
 	def close(self):
 		self.protocol_manager.close()
@@ -356,7 +373,6 @@ class BatsimHandler(SimulatorHandler):
 
 	def start(self, workload_fn=None):
 		assert not self.is_running, "A simulation is already running."
-		self.nb_simulation += 1
 		self.reset()
 		self._simulator_process, workload_fn = self._start_simulator(workload_fn)
 		super(BatsimHandler, self).start(workload_fn)
@@ -365,20 +381,21 @@ class BatsimHandler(SimulatorHandler):
 			self._handle_events()
 
 		assert self.is_running, "An error ocurred during simulator starting."
+		self.nb_simulation += 1
 
-	def _checkpoint(self):
+	def _proceed_time(self):
 		if not self._alarm_is_set:
-			self.protocol_manager.set_alarm(self.current_time + 1)
+			self.protocol_manager.set_alarm(self.current_time + 1.0001)
 			self._alarm_is_set = True
 
 	def _wait_state_change(self):
 		self._handle_events()
-		while self.running_simulation and (self.alarm_time != -1 or self.job_manager.is_empty):
+		while self.is_running and (self._alarm_is_set or self.job_manager.is_empty):
+			self._proceed_time()
 			self._handle_events()
 
 	def _start_job(self, job):
-		self.resource_manager.start_job(job)
-		self.job_manager.on_job_started(job.id, self.current_time)
+		super(BatsimHandler, self)._start_job(job)
 		self.protocol_manager.start_job(job.id, job.allocation)
 
 	def _start_simulator(self, workload_fn):
@@ -401,22 +418,41 @@ class BatsimHandler(SimulatorHandler):
 
 	def reset(self):
 		super(BatsimHandler, self).reset()
-		self.alarm_time = -1
 		self._alarm_is_set = False
 		self.protocol_manager.reset()
 
-	def _handle_requested_call(self, timestamp):
-		self._alarm_is_set = False
-
 	def _reject_job(self, job_id):
 		self.protocol_manager.reject_job(job_id)
+
+	def _handle_events(self):
+		self.protocol_manager.send_events()
+
+		old_time = self.current_time
+		events = self.protocol_manager.read_events(blocking=not self.running_simulation)
+
+		# New jobs does not need to be updated in this timestep
+		# Update jobs if no time has passed does not make sense.
+		time_passed = self.current_time - old_time
+		if time_passed != 0:
+			self.job_manager.update_state(time_passed)
+			self.resource_manager.update_state(time_passed)
+
+		for event in events:
+			self._handle_event(event)
+
+		# Remember to always ack
+		if self.running_simulation:
+			self.protocol_manager.acknowledge()
+
+	def _handle_requested_call(self, timestamp):
+		self._alarm_is_set = False
 
 	def _handle_simulation_ends(self, data):
 		assert self.is_running, "No simulation is currently running"
 		self.protocol_manager.acknowledge()
 		self.protocol_manager.send_events()
 		self.running_simulation = False
-		metrics = dict(
+		self.metrics = dict(
 			makespan=float(data["makespan"]),
 			mean_waiting_time=float(data["mean_waiting_time"]),
 			mean_turnaround_time=float(data["mean_turnaround_time"]),
@@ -433,52 +469,18 @@ class BatsimHandler(SimulatorHandler):
 			total_waiting_time=self.job_manager.total_waiting_time
 		)
 		tm.sleep(2)
-		super(BatsimHandler, self)._handle_simulation_ends(metrics)
+		self._export_metrics()
 
 	def _handle_simulation_begins(self, data):
 		assert not self.is_running, "A simulation is already running (is more than one instance of Batsim active?!)"
 		self.running_simulation = True
 
-	def _handle_events(self):
-		self.protocol_manager.send_events()
-
-		old_time = self.current_time
-		events = self.protocol_manager.read_events(blocking=not self.running_simulation)
-
-		# New jobs does not need to be updated in this timestep
-		# Update jobs if no time has passed does not make sense.
-		time_passed = self.current_time - old_time
-		if time_passed != 0:
-			if self.alarm_time >= self.current_time:
-				self.alarm_time = -1
-
-			self.job_manager.update_state(time_passed)
-			self.resource_manager.update_state(time_passed)
-
-		for event in events:
-			self._handle_event(event)
-
-		# Remember to always ack
-		if self.running_simulation:
-			self.protocol_manager.acknowledge()
 
 
 class GridSimulatorHandler(SimulatorHandler):
 	def __init__(self, nb_job_slots, time_slice, backlog_width):
 		super(GridSimulatorHandler, self).__init__(nb_job_slots, time_slice, backlog_width)
 		self.simulation_manager = GridSimulator(self.job_manager)
-
-	def schedule(self, job_pos):
-		assert self.is_running, "Simulation is not running."
-
-		if job_pos != -1:  # Try to schedule job
-			super(GridSimulatorHandler, self).schedule(job_pos)
-		else:
-			self._proceed_time()
-
-		self._start_ready_jobs()
-
-		self._handle_events()
 
 	@property
 	def current_time(self):
@@ -501,10 +503,6 @@ class GridSimulatorHandler(SimulatorHandler):
 	def close(self):
 		self.simulation_manager.close()
 
-	def _start_job(self, job):
-		self.resource_manager.start_job(job)
-		self.job_manager.on_job_started(job.id, self.current_time)
-
 	def _reject_job(self, job_id):
 		self.simulation_manager.reject_job(job_id)
 
@@ -523,22 +521,3 @@ class GridSimulatorHandler(SimulatorHandler):
 		events = self.simulation_manager.read_events()
 		for event in events:
 			self._handle_event(event)
-
-	def _handle_simulation_ends(self, data):
-		metrics = dict(
-			makespan=self.job_manager.last_job.finish_time,
-			mean_waiting_time=self.job_manager.total_waiting_time / self.job_manager.nb_jobs_submitted,
-			mean_turnaround_time=self.job_manager.total_turnaround_time / self.job_manager.nb_jobs_submitted,
-			mean_slowdown=self.job_manager.runtime_mean_slowdown,
-			max_waiting_time=self.job_manager.max_waiting_time,
-			max_turnaround_time=self.job_manager.max_turnaround_time,
-			max_slowdown=self.job_manager.max_slowdown_time,
-			energy_consumed=self.resource_manager.energy_consumed,
-			nb_jobs_killed=self.job_manager.nb_jobs_killed,
-			nb_jobs_finished=self.job_manager.nb_jobs_finished,
-			nb_jobs_success=self.job_manager.nb_jobs_success,
-			total_slowdown=self.job_manager.total_slowdown,
-			total_turnaround_time=self.job_manager.total_turnaround_time,
-			total_waiting_time=self.job_manager.total_waiting_time
-		)
-		super(GridSimulatorHandler, self)._handle_simulation_ends(metrics)
