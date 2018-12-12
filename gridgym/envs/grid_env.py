@@ -19,7 +19,6 @@ class GridEnv(gym.Env):
 
 	def step(self, action):
 		assert self.simulator.is_running, "Simulation is not running."
-		assert isinstance(action, int)
 		mean_slow_before = self.simulator.job_manager.runtime_mean_slowdown
 
 		try:
@@ -39,7 +38,7 @@ class GridEnv(gym.Env):
 		self.simulator.start()
 		return self._get_obs()
 
-	def render(self, mode='image'):
+	def render(self, mode='console'):
 		if mode == 'image':
 			self._plot()
 		elif mode == 'console':

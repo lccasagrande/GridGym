@@ -123,6 +123,7 @@ class ResourceManager:
 		self.nb_resources = len(resources)
 		self._resources = sorted(resources, key=lambda r: r.id)
 		self.energy_consumed = 0
+		self.nb_free_resources = self.nb_resources
 		self.colormap = np.arange(1 / 40., 1, 1 / 40.).tolist()
 		np.random.shuffle(self.colormap)
 
@@ -171,7 +172,9 @@ class ResourceManager:
 	def reset(self):
 		np.random.shuffle(self.colormap)
 		self.energy_consumed = 0
-		for r in self._resources: r.reset()
+		self.nb_free_resources = self.nb_resources
+		for r in self._resources:
+			r.reset()
 
 	def shut_down_unused(self):
 		res = list()
@@ -217,6 +220,7 @@ class ResourceManager:
 
 	def allocate_job_and_throw(self, job):
 		res_idx, slowest_speed = self._reserve_resources(job)
+		self.nb_free_resources -= len(res_idx)
 		job.allocation = res_idx
 		job.time_left_to_start = 0
 		job.expected_exec_time = job.cpu / 1000000.0 / float(slowest_speed)  # Convert to Mega Flops
@@ -231,6 +235,7 @@ class ResourceManager:
 		return res
 
 	def release(self, job):
+		self.nb_free_resources += len(job.allocation)
 		for r in job.allocation:
 			self._resources[r].release(job)
 

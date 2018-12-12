@@ -5,6 +5,7 @@ import time as tm
 import pandas as pd
 import subprocess
 import math
+from sklearn.preprocessing import MinMaxScaler
 from sortedcontainers import SortedList
 from .job import Job, JobManager
 from .network import BatsimEvent, BatsimProtocolHandler
@@ -118,7 +119,8 @@ class GridSimulator:
 
 
 class SimulatorHandler:
-	PLATFORM_FN = "platforms/platform_hg_10.xml"
+	PLATFORM_FN = "platforms/auvergrid_iut15.xml"
+	#PLATFORM_FN = "platforms/platform_hg_10.xml"
 	WORKLOAD_DIR = "workloads"
 	OUTPUT_DIR = "results"
 
@@ -128,6 +130,7 @@ class SimulatorHandler:
 			raise IOError("File %s does not exist" % self.files_path)
 
 		os.makedirs(SimulatorHandler.OUTPUT_DIR, exist_ok=True)
+		# self.time_scaler = MinMaxScaler(feature_range=(-1, 1), copy=False).fit(np.reshape(range(0, 15), (-1, 1)))
 		self.time_slice = time_slice
 		self.nb_job_slots = nb_job_slots
 		self.backlog_width = backlog_width
@@ -135,12 +138,14 @@ class SimulatorHandler:
 		self.nb_simulation = 0
 		self.max_tracking_time_since_last_job = 10
 		self._workload_idx = 0
-		self.time_since_last_new_job = 0
+		self.time_last_job_submitted = 0
 		self.metrics = {}
 		self._workloads = self._get_workloads(self.files_path)
 		self._platform = os.path.join(self.files_path, SimulatorHandler.PLATFORM_FN)
 		self.resource_manager = ResourceManager.load(self._platform)
 		self.job_manager = JobManager(self.nb_job_slots)
+		self.workload_name = None
+		self.last_jobslot_selected = 0
 
 	@property
 	def nb_jobs_waiting(self):
@@ -172,10 +177,12 @@ class SimulatorHandler:
 
 	def _get_workloads(self, files_path):
 		workloads_path = os.path.join(files_path, SimulatorHandler.WORKLOAD_DIR)
-		return [workloads_path + "/" + w for w in os.listdir(workloads_path) if w.endswith('.json')]
+		return [(workloads_path + "/" + w, w) for w in os.listdir(workloads_path) if w.endswith('.json')]
 
 	def schedule(self, job_pos):
 		assert self.is_running, "Simulation is not running."
+		self.last_jobslot_selected = job_pos
+
 		if job_pos != -1:
 			job = self.job_manager.get_job_and_throw(job_pos)
 			self.resource_manager.allocate_job_and_throw(job)
@@ -192,7 +199,7 @@ class SimulatorHandler:
 	def _wait_state_change(self):
 		raise NotImplementedError()
 
-	def _proceed_time(self):
+	def _proceed_time(self, time=1):
 		raise NotImplementedError()
 
 	def _start_ready_jobs(self):
@@ -219,12 +226,13 @@ class SimulatorHandler:
 					cpu,
 					tpe),
 				timestamp)
-			self.time_since_last_new_job = timestamp
+			self.time_last_job_submitted = timestamp
 		else:
 			self._reject_job(data['job_id'])
 
 	def _handle_simulation_ends(self, data):
 		self.metrics = dict(
+			workload=self.workload_name,
 			makespan=self.job_manager.last_job.finish_time,
 			mean_waiting_time=self.job_manager.total_waiting_time / self.job_manager.nb_jobs_submitted,
 			mean_turnaround_time=self.job_manager.total_turnaround_time / self.job_manager.nb_jobs_submitted,
@@ -284,7 +292,7 @@ class SimulatorHandler:
 		return state
 
 	def get_time_state_img(self):
-		diff = min(self.max_tracking_time_since_last_job, self.current_time - self.time_since_last_new_job)
+		diff = min(self.max_tracking_time_since_last_job, self.current_time - self.time_last_job_submitted)
 		v = diff / float(self.max_tracking_time_since_last_job)
 		return np.full(shape=self.img_time_window, fill_value=v, dtype=np.float)
 
@@ -299,7 +307,7 @@ class SimulatorHandler:
 		return res_state
 
 	def get_state(self):
-		state = np.zeros(shape=(self.nb_resources + self.nb_job_slots * 2), dtype=np.float)
+		state = np.zeros(shape=(self.nb_resources + self.nb_job_slots * 2 + 4), dtype=np.float)
 		state[0:self.nb_resources] = [res.get_reserved_time() for res in self.resource_manager.resources]
 
 		i = self.nb_resources
@@ -308,6 +316,12 @@ class SimulatorHandler:
 				state[i] = j.requested_resources
 				state[i + 1] = j.requested_time
 			i += 2
+
+
+		state[-4] = self.last_jobslot_selected
+		state[-3] = self.job_manager.nb_jobs_in_queue
+		state[-2] = self.current_time - self.time_last_job_submitted
+		state[-1] = self.nb_jobs_submitted / float(max(1, self.current_time)) #self.current_time - self.time_last_job_submitted
 		return state
 
 	def select_workload(self):
@@ -315,9 +329,10 @@ class SimulatorHandler:
 			self._workload_idx = 0
 			np.random.shuffle(self._workloads)
 
-		workload = self._workloads[self._workload_idx]
+		workload, name = self._workloads[self._workload_idx]
+		#print("Name {}".format(name))
 		self._workload_idx += 1
-		return workload
+		return workload, name
 
 	def start(self, workload_fn):
 		self.job_manager.load(workload_fn)
@@ -333,8 +348,10 @@ class SimulatorHandler:
 		raise NotImplementedError()
 
 	def reset(self):
+		self.workload_name = None
 		self.metrics = {}
-		self.time_since_last_new_job = 0
+		self.time_last_job_submitted = 0
+		self.last_jobslot_selected = 0
 		self.job_manager.reset()
 		self.resource_manager.reset()
 
@@ -383,9 +400,9 @@ class BatsimHandler(SimulatorHandler):
 		assert self.is_running, "An error ocurred during simulator starting."
 		self.nb_simulation += 1
 
-	def _proceed_time(self):
+	def _proceed_time(self, time=1):
 		if not self._alarm_is_set:
-			self.protocol_manager.set_alarm(self.current_time + 1.0001)
+			self.protocol_manager.set_alarm(self.current_time + time + .0001)
 			self._alarm_is_set = True
 
 	def _wait_state_change(self):
@@ -400,7 +417,7 @@ class BatsimHandler(SimulatorHandler):
 
 	def _start_simulator(self, workload_fn):
 		platform_file = self._platform
-		workload_file = self.select_workload() if workload_fn is None else workload_fn
+		workload_file, self.workload_name = self.select_workload() if workload_fn is None else (workload_fn,workload_fn)
 
 		if BatsimHandler.USE_DOCKER:
 			cmd = "docker run --net host -v {}:/batsim lccasagrande/batsim batsim".format(self.files_path)
@@ -476,7 +493,6 @@ class BatsimHandler(SimulatorHandler):
 		self.running_simulation = True
 
 
-
 class GridSimulatorHandler(SimulatorHandler):
 	def __init__(self, nb_job_slots, time_slice, backlog_width):
 		super(GridSimulatorHandler, self).__init__(nb_job_slots, time_slice, backlog_width)
@@ -492,10 +508,10 @@ class GridSimulatorHandler(SimulatorHandler):
 
 	def start(self, workload_fn=None):
 		assert not self.is_running, "A simulation is already running."
-		workload = workload_fn if workload_fn is not None else self.select_workload()
+		self.reset()
+		workload, self.workload_name = (workload_fn, workload_fn) if workload_fn is not None else self.select_workload()
 		self.simulation_manager.start(workload)
 		super(GridSimulatorHandler, self).start(workload)
-		self.reset()
 		self._wait_state_change()
 		assert self.is_running, "An error ocurred during simulator starting."
 		self.nb_simulation += 1
@@ -507,15 +523,33 @@ class GridSimulatorHandler(SimulatorHandler):
 		self.simulation_manager.reject_job(job_id)
 
 	def _wait_state_change(self):
+		def can_allocate():
+			return any(
+				self.resource_manager.nb_free_resources >= j
+				for j in self.job_manager._job_slots.get_requested_resources())
+
 		self._handle_events()
-		while self.is_running and self.job_manager.is_empty:
-			self._proceed_time()
+		while self.is_running and not can_allocate():
+			self._proceed_time(self.get_next_event_time())
 			self._handle_events()
 
-	def _proceed_time(self):
-		self.simulation_manager.proceed_time(1)
-		self.job_manager.update_state(1)
-		self.resource_manager.update_state(1)
+	def get_next_event_time(self):
+		next_release, next_submission = np.inf, np.inf
+		if self.job_manager.jobs_running:
+			next_release = min(self.job_manager.jobs_running, key=(lambda j: j.remaining_time)).remaining_time
+
+		if self.simulation_manager.workload:
+			next_submission = self.simulation_manager.workload[0].submit_time - self.current_time
+
+		if next_release == np.inf and next_submission == np.inf:
+			return 1
+		else:
+			return min(next_release, next_submission)
+
+	def _proceed_time(self, time=1):
+		self.simulation_manager.proceed_time(time)
+		self.job_manager.update_state(time)
+		self.resource_manager.update_state(time)
 
 	def _handle_events(self):
 		events = self.simulation_manager.read_events()

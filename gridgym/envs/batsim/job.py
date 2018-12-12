@@ -27,6 +27,11 @@ class JobSlot:
 	def nb_jobs(self):
 		return self.nb_slots - len(self.slots_free)
 
+	def get_requested_resources(self):
+		for j in self.slots:
+			if j is not None:
+				yield j.requested_resources
+
 	def clear(self):
 		self.slots = np.empty(shape=self.nb_slots, dtype=object)
 		self.slots_free = SortedList(range(self.nb_slots))
