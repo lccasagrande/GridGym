@@ -1,11 +1,11 @@
 from gym.envs.registration import register
 
 register(
-	id='grid-v0',
-	entry_point='gridgym.envs:GridEnv',
+	id='OffReservation-v0',
+	entry_point='gridgym.envs:OffReservationEnv',
 )
 
 register(
-	id='batsim-v0',
-	entry_point='gridgym.envs:BatsimEnv',
+	id='Scheduling-v0',
+	entry_point='gridgym.envs:SchedulingEnv',
 )

@@ -1,2 +1,2 @@
-from gridgym.envs.grid_env import GridEnv
-from gridgym.envs.batsim_env import BatsimEnv
+from gridgym.envs.off_reservation_env import OffReservationEnv
+from gridgym.envs.scheduling_env import SchedulingEnv

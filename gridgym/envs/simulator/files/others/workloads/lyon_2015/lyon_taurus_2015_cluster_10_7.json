@@ -1,0 +1,133 @@
+{
+    "description": "this workload had been automatically generated from AUVERGRID traces",
+    "date": "2019-07-08 02:01:07.290577",
+    "simulation_lenght": 9959,
+    "load": 0.02864937641723356,
+    "max_walltime": 3560,
+    "nb_jobs": 12,
+    "nb_profiles": 7,
+    "nb_res": 12,
+    "jobs": [
+        {
+            "id": "1",
+            "res": 12,
+            "subtime": 0,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "2",
+            "res": 12,
+            "subtime": 1,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "3",
+            "res": 12,
+            "subtime": 66,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "4",
+            "res": 12,
+            "subtime": 69,
+            "walltime": 60,
+            "profile": "6000000"
+        },
+        {
+            "id": "5",
+            "res": 12,
+            "subtime": 93,
+            "walltime": 60,
+            "profile": "8000000"
+        },
+        {
+            "id": "6",
+            "res": 12,
+            "subtime": 100,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "7",
+            "res": 12,
+            "subtime": 112,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "8",
+            "res": 12,
+            "subtime": 124,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "9",
+            "res": 12,
+            "subtime": 145,
+            "walltime": 120,
+            "profile": "13000000"
+        },
+        {
+            "id": "10",
+            "res": 12,
+            "subtime": 300,
+            "walltime": 60,
+            "profile": "61000000"
+        },
+        {
+            "id": "11",
+            "res": 12,
+            "subtime": 1334,
+            "walltime": 540,
+            "profile": "364000000"
+        },
+        {
+            "id": "12",
+            "res": 12,
+            "subtime": 6398,
+            "walltime": 3560,
+            "profile": "1440000000"
+        }
+    ],
+    "profiles": {
+        "5000000": {
+            "cpu": 5000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "6000000": {
+            "cpu": 6000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "8000000": {
+            "cpu": 8000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "13000000": {
+            "cpu": 13000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "61000000": {
+            "cpu": 61000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "364000000": {
+            "cpu": 364000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "1440000000": {
+            "cpu": 1440000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        }
+    }
+}

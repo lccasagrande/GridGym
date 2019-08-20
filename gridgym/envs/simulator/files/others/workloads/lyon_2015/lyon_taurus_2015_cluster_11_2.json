@@ -1,0 +1,188 @@
+{
+    "description": "this workload had been automatically generated from AUVERGRID traces",
+    "date": "2019-07-08 02:01:05.668249",
+    "simulation_lenght": 1509,
+    "load": 2.0526738473167043,
+    "max_walltime": 4000,
+    "nb_jobs": 17,
+    "nb_profiles": 11,
+    "nb_res": 168,
+    "jobs": [
+        {
+            "id": "1",
+            "res": 24,
+            "subtime": 0,
+            "walltime": 3000,
+            "profile": "2000000"
+        },
+        {
+            "id": "2",
+            "res": 120,
+            "subtime": 169,
+            "walltime": 3000,
+            "profile": "7000000"
+        },
+        {
+            "id": "3",
+            "res": 24,
+            "subtime": 193,
+            "walltime": 3000,
+            "profile": "1000000"
+        },
+        {
+            "id": "4",
+            "res": 120,
+            "subtime": 219,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "5",
+            "res": 24,
+            "subtime": 220,
+            "walltime": 3000,
+            "profile": "7000000"
+        },
+        {
+            "id": "6",
+            "res": 144,
+            "subtime": 227,
+            "walltime": 3000,
+            "profile": "20000000"
+        },
+        {
+            "id": "7",
+            "res": 12,
+            "subtime": 229,
+            "walltime": 60,
+            "profile": "4000000"
+        },
+        {
+            "id": "8",
+            "res": 48,
+            "subtime": 242,
+            "walltime": 3000,
+            "profile": "5000000"
+        },
+        {
+            "id": "9",
+            "res": 46,
+            "subtime": 250,
+            "walltime": 3000,
+            "profile": "22000000"
+        },
+        {
+            "id": "10",
+            "res": 12,
+            "subtime": 283,
+            "walltime": 60,
+            "profile": "4000000"
+        },
+        {
+            "id": "11",
+            "res": 24,
+            "subtime": 284,
+            "walltime": 3000,
+            "profile": "19000000"
+        },
+        {
+            "id": "12",
+            "res": 12,
+            "subtime": 286,
+            "walltime": 60,
+            "profile": "4000000"
+        },
+        {
+            "id": "13",
+            "res": 168,
+            "subtime": 287,
+            "walltime": 60,
+            "profile": "5000000"
+        },
+        {
+            "id": "14",
+            "res": 24,
+            "subtime": 419,
+            "walltime": 3000,
+            "profile": "1045000000"
+        },
+        {
+            "id": "15",
+            "res": 48,
+            "subtime": 598,
+            "walltime": 3000,
+            "profile": "1000000"
+        },
+        {
+            "id": "16",
+            "res": 48,
+            "subtime": 857,
+            "walltime": 4000,
+            "profile": "1440000000"
+        },
+        {
+            "id": "17",
+            "res": 36,
+            "subtime": 908,
+            "walltime": 600,
+            "profile": "601000000"
+        }
+    ],
+    "profiles": {
+        "2000000": {
+            "cpu": 2000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "7000000": {
+            "cpu": 7000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "1000000": {
+            "cpu": 1000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "5000000": {
+            "cpu": 5000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "20000000": {
+            "cpu": 20000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "4000000": {
+            "cpu": 4000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "22000000": {
+            "cpu": 22000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "19000000": {
+            "cpu": 19000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "1045000000": {
+            "cpu": 1045000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "1440000000": {
+            "cpu": 1440000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "601000000": {
+            "cpu": 601000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        }
+    }
+}

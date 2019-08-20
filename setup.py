@@ -1,27 +1,23 @@
 from setuptools import setup
+from shutil import which
 import sys
 
-CURRENT_PYTHON = float("{}.{}".format(sys.version_info.major, sys.version_info.minor))
-REQUIRED_PYTHON = 3
 
-if CURRENT_PYTHON < REQUIRED_PYTHON:
-	sys.stderr.write("""
-        ==========================
-        Unsupported Python version
-        ==========================
-
-        This project requires Python {}, but you're trying to install it on Python {}.        
-        """.format(REQUIRED_PYTHON, CURRENT_PYTHON))
+if which('batsim') is None:
+    raise ImportError("(HINT: you need to install Batsim. Check the setup instructions here: https://batsim.readthedocs.io/en/latest/.)")
 
 setup(name='GridGym',
-      python_requires='>={}'.format(REQUIRED_PYTHON),
       author='lccasagrande',
       version='0.0.1',
+      python_requires='>=3.6',
       install_requires=[
-	      'gym',
-	      'numpy',
-	      'pandas',
-	      'zmq',
-	      'sortedcontainers',
-	      'matplotlib'
+              'gym',
+              'numpy',
+              'pandas',
+              'zmq',
+              'sortedcontainers',
+              'evalys',
+              'procset',
+              'seaborn',
+              'matplotlib'
       ])

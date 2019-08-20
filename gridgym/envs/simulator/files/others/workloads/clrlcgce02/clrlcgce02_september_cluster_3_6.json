@@ -1,0 +1,90 @@
+{
+    "description": "this workload had been automatically generated from AUVERGRID traces",
+    "date": "2019-07-17 01:12:42.404931",
+    "simulation_lenght": 147,
+    "load": 0.01514314058956916,
+    "max_walltime": 4320,
+    "nb_jobs": 8,
+    "nb_profiles": 4,
+    "nb_res": 1,
+    "jobs": [
+        {
+            "id": "1",
+            "res": 1,
+            "subtime": 0,
+            "walltime": 4320,
+            "profile": "1440000000"
+        },
+        {
+            "id": "2",
+            "res": 1,
+            "subtime": 20,
+            "walltime": 4320,
+            "profile": "1440000000"
+        },
+        {
+            "id": "3",
+            "res": 1,
+            "subtime": 21,
+            "walltime": 4320,
+            "profile": "1440000000"
+        },
+        {
+            "id": "4",
+            "res": 1,
+            "subtime": 21,
+            "walltime": 4320,
+            "profile": "326000000"
+        },
+        {
+            "id": "5",
+            "res": 1,
+            "subtime": 102,
+            "walltime": 4320,
+            "profile": "314000000"
+        },
+        {
+            "id": "6",
+            "res": 1,
+            "subtime": 125,
+            "walltime": 4320,
+            "profile": "1440000000"
+        },
+        {
+            "id": "7",
+            "res": 1,
+            "subtime": 129,
+            "walltime": 15,
+            "profile": "1000000"
+        },
+        {
+            "id": "8",
+            "res": 1,
+            "subtime": 146,
+            "walltime": 90,
+            "profile": "1000000"
+        }
+    ],
+    "profiles": {
+        "1440000000": {
+            "cpu": 1440000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "326000000": {
+            "cpu": 326000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "314000000": {
+            "cpu": 314000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        },
+        "1000000": {
+            "cpu": 1000000,
+            "com": 0,
+            "type": "parallel_homogeneous"
+        }
+    }
+}
