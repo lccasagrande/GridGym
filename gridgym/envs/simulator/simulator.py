@@ -1,234 +1,392 @@
+from xml.dom import minidom
+from itertools import takewhile
+
+from gridgym.envs.simulator.resource import Platform, PowerStateType, ResourceState
+from gridgym.envs.simulator.job import Job, JobState
+from gridgym.envs.simulator.network import *
+from gridgym.envs.simulator.utils.submitter import Workload, JobSubmitter
 import subprocess
-import time as tm
-import numpy as np
-from collections import defaultdict
-from abc import ABC, abstractmethod
-
-from sortedcontainers import SortedDict
-
-from .resource import Platform, PowerStateType, ResourceState
-from .job import Job, JobState
-from .network import ProtocolHandler, EventType, NotifyType
-from .submitter import JobSubmitter
 
 
-class SimulationHandler():
+def get_free_tcp_address():
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.bind(("", 0))
+    host, port = tcp.getsockname()
+    tcp.close()
+    return "tcp://127.0.0.1:{}".format(port)
+
+
+def get_resources_from_platform(fn):
+    platform = minidom.parse(fn)
+    prop = platform.getElementsByTagName("prop")[0]
+    assert prop.getAttribute("id") == 'cores_per_node'
+    cores_per_node = int(prop.getAttribute("value"))
+    hosts = platform.getElementsByTagName('host')
+    hosts.sort(key=lambda x: x.attributes['id'].value)
+    resources, id = [], 0
+    for r in hosts:
+        if r.getAttribute('id') != 'master_host':
+            properties = {
+                p.getAttribute('id'): p.getAttribute('value') for p in r.getElementsByTagName('prop')
+            }
+            properties['role'] = properties.get('role', '')
+            resource = {
+                'id': id,
+                'name': r.getAttribute('id'),
+                'pstate': r.getAttribute('pstate'),
+                'speed': r.getAttribute('speed'),
+                'properties': properties,
+                'zone_properties': {'cores_per_node': cores_per_node}
+            }
+            resources.append(resource)
+            id += 1
+    return resources
+
+
+class GridSimulationHandler(SimulationProtocol):
     def __init__(self):
-        self.__protocol_handler = ProtocolHandler()
-        self.__protocol_handler.set_callback(
-            EventType.JOB_COMPLETED, self._handle_job_completed)
-        self.__protocol_handler.set_callback(
-            EventType.JOB_COMPLETED, self.__start_ready_jobs)
-        self.__protocol_handler.set_callback(
-            EventType.JOB_SUBMITTED, self._handle_job_submitted)
-        self.__protocol_handler.set_callback(
-            EventType.SIMULATION_BEGINS, self._handle_simulation_begins)
-        self.__protocol_handler.set_callback(
-            EventType.SIMULATION_ENDS, self._handle_simulation_ends)
-        self.__protocol_handler.set_callback(
-            EventType.JOB_KILLED, self._handle_job_killed)
-        self.__protocol_handler.set_callback(
-            EventType.REQUESTED_CALL, self._handle_requested_call)
-        self.__protocol_handler.set_callback(
-            EventType.RESOURCE_STATE_CHANGED, self._handle_resource_state_changed)
-        self.__protocol_handler.set_callback(
-            EventType.RESOURCE_STATE_CHANGED, self.__start_ready_jobs)
-        self.__protocol_handler.set_callback(
-            EventType.NOTIFY, self._handle_notify)
-        self.__protocol_handler.set_callback(
-            EventType.JOB_KILLED, self.__start_ready_jobs)
-        self.__jobs = {"queue": [], "running": {},
-                       "completed": [], "ready": []}
-        self.__simulator = None
-        self.platform, self.simulation_time, self.submitter_ended = None, None, False
+        self.__current_time = 0.0
+        self.__callbacks = {k: [] for k in EventType}
+        self.__events = SortedList(key=lambda e: e.timestamp)
+        self.__profiles = {}
+        self.__submitter_ended = True
+        self.__submitter = None
+        self.__platform = None
+        self._is_running = False
+        self.__jobs = {}
+        self.set_callback(EventType.SIMULATION_ENDS, self.on_simulation_ends)
+
 
     @property
-    def current_time(self):
-        return self.__protocol_handler.current_time
+    def address(self):
+        return None
 
     @property
     def is_running(self):
-        return self.__simulator is not None and (not self.submitter_ended or any(v for k, v in self.__jobs.items() if k != 'completed'))
+        return self._is_running
 
     @property
-    def jobs_queue(self):
-        return np.array(self.__jobs["queue"])
+    def current_time(self):
+        return self.__current_time
 
-    @property
-    def jobs_running(self):
-        return np.asarray(list(self.__jobs["running"].values()))
+    def ack(self):
+        pass
 
-    @property
-    def jobs_completed(self):
-        return np.array(self.__jobs["completed"])
+    def set_callback(self, event_type, call):
+        self.__callbacks[event_type].append(call)
 
-    @property
-    def agenda(self):
-        return np.asarray([
-            (r.allocated_job.start_time + r.allocated_job.walltime) - self.current_time if r.is_computing
-            else r.allocated_job.walltime if r.is_reserved
-            else 0
-            for r in self.platform.resources
-        ])
+    def proceed_simulation(self):
+        assert self.is_running
+        if len(self.__events) == 0 and self.__submitter_ended and len(self.__jobs) == 0:
+            self.finish()
+        elif len(self.__events) > 0:
+            self.__current_time = self.__events[0].timestamp
+            self._dispatch_events()
+        else:
+            raise RuntimeError
 
-    def start(self, workload_fn, platform_fn, output_dir=None, simulation_time=None):
-        assert not self.is_running, "A simulation is already running."
-        assert not simulation_time or simulation_time > 0
+    def start(self, platform_fn, workload_fn=None, output_dir=None):
+        assert not self.is_running
+        assert platform_fn
 
-        cmd = "batsim -s {} -p {} -w {} -E --enable-dynamic-jobs -q".format(
-            self.__protocol_handler.address, platform_fn, workload_fn
+        self.__submitter_ended = False
+        self.__jobs = {}
+        self.__current_time = 0.0
+
+        resources = get_resources_from_platform(platform_fn)
+        event = SimulationBeginsEvent(self.current_time, resources)
+        self.__platform = event.data.platform
+
+        if workload_fn:
+            if self.__submitter is None:
+                self.__submitter = JobSubmitter(self)
+            self.__submitter.start(workload_fn)
+
+        self.__events.add(event)
+        self._is_running = True
+        self._dispatch_events()
+
+    def finish(self):
+        self._is_running = False
+        self.__events.add(SimulationEndsEvent(self.current_time))
+        self._dispatch_events()
+
+    def on_simulation_ends(self, timestamp, data):
+        self.__submitter_ended = True
+        if self.__submitter is not None:
+            self.__submitter.close()
+        self.__events.clear()
+        self.__profiles.clear()
+        self.__jobs = {}
+
+    def execute_job(self, job_id, alloc):
+        allocation = str(ProcSet(*alloc))
+        event_1 = JobStartedEvent(self.current_time, job_id, allocation)
+
+        job = self.__jobs.pop(job_id)
+        min_speed = min(r.speed for r in self.__platform.get_resources(alloc))
+        if job.profile not in self.__profiles:
+            print(self.__profiles)
+        job_profile = self.__profiles[job.profile]
+        if job_profile.type == WorkloadProfileType.parallel_homogeneous:
+            runtime = int(job_profile.cpu / min_speed)
+        elif job_profile.type == WorkloadProfileType.parallel_homogeneous_total:
+            cpu = job_profile.cpu / job.res
+            runtime = int(cpu / min_speed)
+        else:
+            raise NotImplementedError
+        event_2 = JobCompletedEvent(
+            self.current_time + min(runtime, job.walltime),
+            job_id,
+            str(JobState.COMPLETED_SUCCESSFULLY if job.walltime >
+                runtime else JobState.COMPLETED_WALLTIME_REACHED),
+            "0",
+            allocation
         )
+        self.__events.add(event_1)
+        self.__events.add(event_2)
+
+    def reject_job(self, job_id):
+        del self.__jobs[job_id]
+
+    def call_me_later(self, at):
+        assert at >= self.current_time
+        events = takewhile(lambda e: e.timestamp <= int(at), self.__events)
+        if not any(e.type == EventType.REQUESTED_CALL and e.timestamp == int(at) for e in events):
+            self.__events.add(RequestedCallEvent(int(at)))
+
+    def kill_job(self, job_ids):
+        for i in job_ids:
+            p = next(p for p, e in enumerate(self.__events)
+                     if e.type == EventType.JOB_COMPLETED and e.data.job_id == i)
+            self.__events.pop(p)
+        self.__events.add(JobKilledEvent(self.current_time, job_ids))
+
+    def register_job(self, id, profile, res, walltime):
+        e = JobSubmittedEvent(self.current_time, id, profile, res, walltime)
+        self.__jobs[id] = e.data.job
+        self.__events.add(e)
+
+    def register_profile(self, workload_name, profile_name, profile):
+        assert isinstance(profile, WorkloadProfile)
+        self.__profiles[profile_name] = profile
+
+    def set_resources_pstate(self, resources, pstate):
+        timestamps = defaultdict(list)
+        transitions = defaultdict(list)
+        nodes_visited = {}
+        for resource in self.__platform.get_resources(resources):
+            if resource.parent_id not in nodes_visited:
+                n = self.__platform.get_node(resource.parent_id)
+                next_ps = next(ps for ps in n.power_states if ps.id == pstate)
+                if next_ps.type == PowerStateType.sleep:
+                    trans_ps = next(ps for ps in n.power_states if ps.type ==
+                                    PowerStateType.switching_off)
+                elif next_ps.type == PowerStateType.computation and not n.is_on:
+                    trans_ps = next(ps for ps in n.power_states if ps.type ==
+                                    PowerStateType.switching_on)
+                else:
+                    trans_ps = None
+
+                time_to_switch = 0 if not trans_ps else int(1/trans_ps.speed)
+                for r in n.resources:
+                    timestamps[time_to_switch].append(r.id)
+                    if trans_ps:
+                        transitions[trans_ps.id].append(r.id)
+                nodes_visited[r.parent_id] = True
+
+        for ps_id, res_ids in transitions.items():
+            self.__events.add(
+                ResourcePowerStateChangedEvent(
+                    self.current_time, str(ProcSet(*res_ids)), ps_id
+                )
+            )
+
+        for time_to_switch, ids in timestamps.items():
+            e = ResourcePowerStateChangedEvent(
+                self.current_time + time_to_switch, str(ProcSet(*ids)), pstate)
+            self.__events.add(e)
+
+    def change_job_state(self, job_id, job_state, kill_reason):
+        raise NotImplementedError
+
+    def notify(self, notify_type):
+        if notify_type == NotifyType.no_more_static_job_to_submit:
+            self.__submitter_ended = True
+        self.__events.add(
+            Notify(self.current_time, NotifyType[notify_type]))
+
+    def _dispatch_events(self):
+        while self.__events and self.__events[0].timestamp == self.current_time:
+            event = self.__events.pop(0)
+            for callback in self.__callbacks[event.type]:
+                callback(event.timestamp, event.data)
+
+
+class BatsimSimulationHandler(SimulationProtocol):
+    WORKLOAD_JOB_SEPARATOR = "!"
+    ATTEMPT_JOB_SEPARATOR = "#"
+    WORKLOAD_JOB_SEPARATOR_REPLACEMENT = "%"
+
+    def __init__(self, address=None):
+        if address is None:
+            address = get_free_tcp_address()
+        self.__network = NetworkHandler(address)
+        self.__requests = SortedList([], key=lambda r: r.timestamp)
+        self.__current_time = 0.0
+        self.__callbacks = {k: [] for k in EventType}
+        self.__simulator = None
+        self.__platform = None
+        self.set_callback(EventType.SIMULATION_ENDS, self.on_simulation_ends)
+
+    @property
+    def address(self):
+        return self.__network.address
+
+    @property
+    def is_running(self):
+        return self.__simulator is not None
+
+    @property
+    def current_time(self):
+        return self.__current_time
+
+    def ack(self):
+        self.__network.send(Message(self.current_time, []))
+
+    def set_callback(self, event_type, call):
+        self.__callbacks[event_type].append(call)
+
+    def proceed_simulation(self):
+        assert self.is_running
+        self._dispatch_events(self._send_and_recv())
+
+    def start(self, platform_fn, workload_fn=None, output_dir=None):
+        assert not self.is_running
+        assert platform_fn
+        cmd = "batsim -s {} -p {} -E".format(self.address, platform_fn)
+        cmd += ' -w {}'.format(workload_fn) if workload_fn else ""
         cmd += " -e {}".format(output_dir) if output_dir else ""
 
         self.__simulator = subprocess.Popen(
-            cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, shell=False
+            cmd.split(), stdout=subprocess.PIPE, shell=False
         )
+        self.__network.bind()
+        self.__current_time = 0.0
 
-        self.simulation_time = simulation_time
-        self.submitter_ended = False
-        self.__protocol_handler.start()
+        # Load platform from file instead of batsim's protocol message
+        resources = get_resources_from_platform(platform_fn)
+        event = SimulationBeginsEvent(self.current_time, resources)
+        self.__platform = event.data.platform
+        self._dispatch_events([event])
+        self.__network.flush(blocking=True)
 
-    def close(self):
-        self.__protocol_handler.close()
-        if self.__simulator:
+    def finish(self):
+        if self.__simulator is not None:
             self.__simulator.terminate()
-        self.__simulator = None
+            self.__simulator = None
 
-    def proceed_time(self, until=0):
-        assert self.__simulator, "Cannot proceed if there is no simulator running."
-        self.__start_ready_jobs()
-        if until > 0:
-            assert until > self.current_time
-            self.__protocol_handler.call_me_later(until + 0.001)
-            while self.is_running and self.current_time < until:
-                self.__protocol_handler.proceed_simulation()
-        else:
-            self.__protocol_handler.proceed_simulation()
+        self._dispatch_events([SimulationEndsEvent(self.current_time)])
 
-        self.check_end_of_simulation()
+    def on_simulation_ends(self, timestamp, data):
+        if self.__simulator:
+            self.ack()
+            self.__simulator.wait()
+            self.__simulator.terminate()
+            self.__simulator = None
+        self.__requests.clear()
+        self.__network.close()
 
-    def check_end_of_simulation(self):
-        if not self.is_running and self.__simulator is not None:
-            self.__protocol_handler.notify(NotifyType.registration_finished)
-            while self.__simulator:
-                self.__protocol_handler.proceed_simulation()
+    def _dispatch_events(self, events):
+        for e in events:
+            for callback in self.__callbacks[e.type]:
+                callback(e.timestamp, e.data)
 
-    def _handle_simulation_begins(self, data):
-        self.platform = data.platform
-        if self.simulation_time:
-            self.__protocol_handler.call_me_later(self.simulation_time)
+    def execute_job(self, job_id, alloc):
+        request = ExecuteJobRequest(self.current_time, job_id, alloc)
+        self._dispatch_events([JobStartedEvent(
+            self.current_time, job_id, request.data.alloc
+        )])
 
-    def _handle_simulation_ends(self, _):
-        self.__protocol_handler.ack()
-        self.__simulator.wait()
-        self.__simulator.terminate()
-        self.__simulator = None
-        self.__protocol_handler.close()
+        self._append_request(request)
 
-    def _handle_job_submitted(self, data):
-        self.__jobs["queue"].append(data.job)
+    def reject_job(self, job_id):
+        request = RejectJobRequest(self.current_time, job_id)
+        self._append_request(request)
 
-    def _handle_job_completed(self, data):
-        job = self.__jobs["running"].pop(data.job_id)
-        job.terminate(self.current_time, data.job_state)
-        self.__jobs["completed"].append(job)
-        for r in self.platform.get_resources(job.allocation):
-            r.release()
+    def call_me_later(self, when):
+        request = CallMeLaterRequest(self.current_time, when)
+        self._append_request(request)
 
-    def _handle_job_killed(self, data):
-        for id in data.job_ids:
-            job = self.__jobs["running"].pop(data.job_id)
-            job.terminate(self.current_time, JobState.COMPLETED_KILLED)
-            self.__jobs["completed"].append(job)
-            self.platform.release(job.alloc)
+    def kill_job(self, job_ids):
+        request = KillJobRequest(self.current_time, job_ids)
+        self._append_request(request)
 
-    def _handle_requested_call(self, data):
-        if self.simulation_time and self.current_time >= self.simulation_time:
-            if self.is_running:
-                self.close()
-            else:
-                self.check_end_of_simulation()
+    def register_job(self, id, profile, res, walltime):
+        request = RegisterJobRequest(
+            self.current_time, id, profile, res, walltime)
+        self._append_request(request)
 
-    def _handle_notify(self, data):
-        if data.type == NotifyType.no_more_static_job_to_submit:
-            self.submitter_ended = True
+    def register_profile(self, workload_name, profile_name, profile):
+        request = RegisterProfileRequest(
+            self.current_time, workload_name, profile_name, profile
+        )
+        self._append_request(request)
 
-    def _handle_resource_state_changed(self, data):
-        resources = self.platform.get_resources(data.resources)
-        for r in resources:
-            r.set_pstate(data.state)
+    def set_resources_pstate(self, resources, pstate):
+        request = SetResourceStateRequest(self.current_time, resources, pstate)
+        self._append_request(request)
 
-    def set_pstate(self, *node_ids, pstate_id):
-        resources_ids = []
-        for i in node_ids:
-            node = self.platform.get_node(i)
-            node.set_pstate(pstate_id)
-            resources_ids.extend([r.id for r in node.resources])
-
-        self.__protocol_handler.set_resources_state(resources_ids, pstate_id)
-
-    def turn_on(self, *node_ids):
-        resources_new_state = defaultdict(list)
-        for i in node_ids:
-            node = self.platform.get_node(i)
-            node.wakeup()
-            ps_id = next(
-                ps.id for ps in node.power_states if ps.type == PowerStateType.computation)
-            resources_new_state[ps_id].extend([r.id for r in node.resources])
-
-        for ps_id, resources_ids in resources_new_state.items():
-            self.__protocol_handler.set_resources_state(resources_ids, ps_id)
-
-    def turn_off(self, *node_ids):
-        resources_new_state = defaultdict(list)
-        for i in node_ids:
-            node = self.platform.get_node(i)
-            node.sleep()
-            ps_id = next(
-                ps.id for ps in node.power_states if ps.type == PowerStateType.sleep)
-            resources_new_state[ps_id].extend([r.id for r in node.resources])
-
-        for ps_id, resources_ids in resources_new_state.items():
-            self.__protocol_handler.set_resources_state(resources_ids, ps_id)
-
-    def initiate_resources(self, resources):
-        ready, nodes_visited = True, {}
-        for r in resources:
-            if not r.is_idle and r.parent_id not in nodes_visited:
-                ready = False
+        transitions = defaultdict(list)
+        nodes_visited = {}
+        for resource in self.__platform.get_resources(resources):
+            if resource.parent_id not in nodes_visited:
+                n = self.__platform.get_node(resource.parent_id)
+                next_ps = next(ps for ps in n.power_states if ps.id == pstate)
+                if next_ps.type == PowerStateType.sleep:
+                    trans_ps = next(ps for ps in n.power_states if ps.type ==
+                                    PowerStateType.switching_off)
+                elif next_ps.type == PowerStateType.computation and not n.is_on:
+                    trans_ps = next(ps for ps in n.power_states if ps.type ==
+                                    PowerStateType.switching_on)
+                else:
+                    trans_ps = None
+                if trans_ps:
+                    for r in n.resources:
+                        transitions[trans_ps.id].append(r.id)
                 nodes_visited[r.parent_id] = True
-                if r.is_sleeping:
-                    self.turn_on(r.parent_id)
-        return ready
 
-    def __start_ready_jobs(self, _=None):
-        for job in list(self.__jobs['ready']):
-            allocated_resources = self.platform.get_resources(job.allocation)
-            ready = self.initiate_resources(allocated_resources)
-            if ready:
-                for r in allocated_resources:
-                    r.start_computing()
-                job.start(self.current_time)
-                self.__protocol_handler.execute_job(job.id, job.allocation)
-                self.__jobs['ready'].remove(job)
-                self.__jobs['running'][job.id] = job
+        events = [
+            ResourcePowerStateChangedEvent(
+                self.current_time, str(ProcSet(*res_ids)), ps_id)
+            for ps_id, res_ids in transitions.items()
+        ]
+        self._dispatch_events(events)
 
-    def allocate(self, job_id, resource_ids=None):
-        job_idx = next(i for i, j in enumerate(
-            self.__jobs['queue']) if j.id == job_id)
-        job = self.__jobs['queue'][job_idx]
-        if not resource_ids:
-            allocation = sorted(
-                [r for r in self.platform.resources if not r.is_reserved], key=lambda r: r.state.value)[:job.res]
-            resource_ids = [r.id for r in allocation]
-        else:
-            allocation = self.platform.get_resources(resource_ids)
+    def change_job_state(self, job_id, job_state, kill_reason):
+        request = ChangeJobStateRequest(
+            self.current_time, job_id, job_state, kill_reason
+        )
+        self._append_request(request)
 
-        if len(allocation) < job.res:
-            raise Exception("Insufficient resources for job {}".format(job.id))
+    def notify(self, notify_type):
+        request = Notify(self.current_time, NotifyType[notify_type])
+        self._append_request(request)
 
-        del self.__jobs['queue'][job_idx]
-        for r in allocation:
-            r.reserve(job)
-        job.set_allocation(resource_ids)
-        self.__jobs['ready'].append(job)
+    def _append_request(self, request):
+        assert isinstance(request, Request) or isinstance(request, Notify)
+        self.__requests.add(request)
+
+    def _read_events(self):
+        msg = self.__network.recv()
+        self.__current_time = msg.now
+        return msg.events
+
+    def _send_requests(self):
+        msg = Message(self.current_time, list(self.__requests))
+        self.__requests.clear()
+        self.__network.send(msg)
+
+    def _send_and_recv(self):
+        self._send_requests()
+        return self._read_events()

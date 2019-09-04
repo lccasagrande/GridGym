@@ -17,7 +17,6 @@ def plot_simulation_graphics(output_dir, show=True):
 	mstates = MachineStatesChanges(os.path.join(output_dir, '_machine_states.csv')).df
 	pstates = PowerStatesChanges(os.path.join(output_dir, '_pstate_changes.csv') )
 	energy = pd.read_csv(os.path.join(output_dir, '_consumed_energy.csv') )
-
 	df = energy.drop_duplicates(subset='time')
 	df = df.drop(['event_type', 'wattmin', 'epower'], axis=1)
 	diff = df.diff(1)
@@ -31,7 +30,7 @@ def plot_simulation_graphics(output_dir, show=True):
 	plot_load(jobs.queue, jobs.MaxProcs, legend_label='Queue Load', ax=ax_list[1])
 	plot_job_details(jobs.df, jobs.MaxProcs, ax=ax_list[2])
 	plot_gantt(jobs, ax=ax_list[3], title="Gantt")
-
+#
 	plot_gantt_pstates(
 		jobs,
 		pstates,
@@ -41,7 +40,7 @@ def plot_simulation_graphics(output_dir, show=True):
 		off_pstates=set([0]),
 		son_pstates=set([2]),
 		soff_pstates=set([3]))
-
+#
 	plot_mstates(mstates, ax_list[5], title="Resources state")
 	ax_list[5].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 	#ax_list[6].plot(power['time'], power['power'], drawstyle='steps-pre')

@@ -1,31 +1,51 @@
 import os
+import math
 
 import numpy as np
 import gym
 from gym import error
 from gym.utils import seeding
 
-from .simulator.simulator import SimulationHandler
+from gridgym.envs.simulator.manager import ResourceManager
+from gridgym.envs.simulator.utils.monitors import *
+from gridgym.envs.simulator.utils.submitter import JobSubmitter
 
 
 class GridEnv(gym.Env):
     SIMULATION_TIME = None  # 7 * 1440
-    WORKLOADS = 'GridGym/gridgym/envs/simulator/files/workloads'
+    WORKLOADS = 'GridGym/gridgym/envs/simulator/files/workloads/'
     PLATFORM = 'GridGym/gridgym/envs/simulator/files/platform.xml'
     OUTPUT = 'GridGym/gridgym/envs/simulator/files/output/'
+    TRACE = False
 
-    def __init__(self):
-        self.simulator = SimulationHandler()
-        self.workloads = [os.path.join(self.WORKLOADS, w) for w in os.listdir(self.WORKLOADS) if w.endswith('.json')]
+    def __init__(self, use_batsim=False):
+        self.rjms = ResourceManager(use_batsim)
+        self.job_submitter = JobSubmitter(self.rjms.simulator)
+        self.workloads = [os.path.join(self.WORKLOADS, w) for w in os.listdir(
+            self.WORKLOADS) if w.endswith('.json')
+        ]
+        self.workloads.sort(key=lambda w: int(w[w.rfind("_")+1:w.rfind(".json")]))
         self.observation_space, self.action_space = self._get_space()
         self.seed()
+        if self.TRACE:
+            self.scheduler_monitor = SchedulerStatsMonitor(self.rjms.simulator)
+            self.res_monitor = ResourceStatesEventMonitor(self.rjms.simulator)
+            self.job_monitor = JobMonitor(self.rjms.simulator)
+            self.pstate_monitor = ResourcePowerStatesEventMonitor(
+                self.rjms.simulator)
+            self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
 
     def close(self):
-        self.simulator.close()
+        self.rjms.close()
+        self.job_submitter.close()
 
     def reset(self):
-        self.simulator.close()
-        self.simulator.start(self._get_workload(), self.PLATFORM, self.OUTPUT, self.SIMULATION_TIME)
+        self.rjms.close()
+        self.rjms.start(platform_fn=self.PLATFORM,
+                        output_dir=self.OUTPUT,
+                        simulation_time=self.SIMULATION_TIME)
+        #np.random.shuffle(self.workloads)
+        self.job_submitter.start(self.workloads)
         return self._get_obs()
 
     def seed(self, seed=None):
@@ -37,9 +57,6 @@ class GridEnv(gym.Env):
 
     def render(self, mode='human'):
         raise NotImplementedError
-
-    def _get_workload(self):
-        return np.random.choice(self.workloads)
 
     def _get_space(self):
         raise NotImplementedError

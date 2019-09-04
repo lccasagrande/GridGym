@@ -9,17 +9,25 @@ from sortedcontainers import SortedList
 
 
 class JobState(Enum):
-    NOT_SUBMITTED = auto()
-    SUBMITTED = auto()
-    RUNNING = auto()
-    COMPLETED_SUCCESSFULLY = auto()
-    COMPLETED_FAILED = auto()
-    COMPLETED_WALLTIME_REACHED = auto()
-    COMPLETED_KILLED = auto()
-    REJECTED = auto()
+    NOT_SUBMITTED = 0
+    SUBMITTED = 1
+    RUNNING = 2
+    COMPLETED_SUCCESSFULLY = 3
+    COMPLETED_FAILED = 4
+    COMPLETED_WALLTIME_REACHED = 5
+    COMPLETED_KILLED = 6
+    REJECTED = 7
+
+    def __str__(self):
+        return "%s" % self.__repr__()
 
     def __repr__(self):
         return self.name
+
+    def __eq__(self, value):
+        if isinstance(value, str):
+            return self.name == value
+        return super().__eq__(value)
 
 
 class Job():
@@ -35,6 +43,14 @@ class Job():
         self.stop_time = -1.  # will be set on terminate
         self.allocation = None  # will be set on scheduling
         self.expected_time_to_start = -1.  # will be set on scheduling
+
+    @property
+    def workload_name(self):
+        return self.id[:self.id.find("!")]
+
+    @property
+    def stretch(self):
+        return -1 if self.start_time == -1 else self.waiting_time / self.walltime
 
     @property
     def waiting_time(self):
@@ -53,6 +69,7 @@ class Job():
         return -1 if self.stop_time == -1 else self.turnaround_time / self.runtime
 
     def set_allocation(self, allocation):
+        assert isinstance(allocation, list)
         assert len(allocation) == self.res
         self.allocation = allocation
 

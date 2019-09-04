@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod, abstractproperty
 import json as json
 import socket
 from enum import Enum, auto
@@ -6,8 +7,8 @@ import zmq
 from procset import ProcSet
 from sortedcontainers import SortedList
 
-from .job import Job, JobState
-from .resource import *
+from gridgym.envs.simulator.job import Job, JobState
+from gridgym.envs.simulator.resource import *
 
 
 def message_decoder(msg):
@@ -31,7 +32,7 @@ def message_decoder(msg):
         elif msg["type"] == EventType.JOB_KILLED:
             return JobKilledEvent(msg["timestamp"], msg["data"]["job_ids"])
         elif msg["type"] == EventType.RESOURCE_STATE_CHANGED:
-            return ResourceStateChangedEvent(
+            return ResourcePowerStateChangedEvent(
                 msg["timestamp"], msg["data"]["resources"], msg["data"]["state"]
             )
         elif msg["type"] == EventType.REQUESTED_CALL:
@@ -53,47 +54,56 @@ def message_decoder(msg):
 
 
 def get_resource_from_json(parent_id, data):
+    def get_speeds():
+        speeds = []
+        for speed in data['speed'].split(","):
+            if "f" in speed:
+                speeds.append(float(speed.replace("f", "")))
+            elif "Mf" in speed:
+                speeds.append(float(speed.replace("Mf", "")) * 1000000)
+            else:
+                raise NotImplementedError(
+                    "Host speed must be in Mega Flops (Mf) or Flops (f)")
+        return speeds
+
     watt_per_state = data["properties"]["watt_per_state"].split(",")
     s_ps = data["properties"].get("sleep_pstates", None)
     pstate_ids = {i: i for i in range(len(watt_per_state))}
+    speeds = get_speeds()
 
     power_states = []
     if s_ps:
         s_ps = list(map(int, s_ps.split(":")))
-        w = float(watt_per_state[pstate_ids.pop(s_ps[0])].split(":")[0])
+        i = pstate_ids.pop(s_ps[0])
+        w = float(watt_per_state[i].split(":")[0])
         power_states.append(PowerState(
-            str(s_ps[0]), PowerStateType.sleep, w, w))
+            str(s_ps[0]), PowerStateType.sleep, PowerProfile(w, w), speeds[i]))
 
-        w = float(watt_per_state[pstate_ids.pop(s_ps[1])].split(":")[0])
+        i = pstate_ids.pop(s_ps[1])
+        w = float(watt_per_state[i].split(":")[0])
         power_states.append(
-            PowerState(str(s_ps[1]), PowerStateType.switching_off, w, w)
+            PowerState(str(s_ps[1]), PowerStateType.switching_off,
+                       PowerProfile(w, w), speeds[i])
         )
 
-        w = float(watt_per_state[pstate_ids.pop(s_ps[2])].split(":")[0])
+        i = pstate_ids.pop(s_ps[2])
+        w = float(watt_per_state[i].split(":")[0])
         power_states.append(PowerState(
-            str(s_ps[2]), PowerStateType.switching_on, w, w))
+            str(s_ps[2]), PowerStateType.switching_on, PowerProfile(w, w), speeds[i]))
 
     for i in pstate_ids.values():
         w = list(map(float, watt_per_state[i].split(":")))
         power_states.append(PowerState(
-            str(i), PowerStateType.computation, w[0], w[1]))
+            str(i), PowerStateType.computation, PowerProfile(w[0], w[1]), speeds[i]))
 
     return Resource(
         data["id"],
         parent_id,
         data["name"],
-        ResourceState[data["state"]],
+        data["pstate"],
         data["properties"]["role"],
-        power_states,
+        power_states
     )
-
-
-def get_free_tcp_address():
-    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.bind(("", 0))
-    host, port = tcp.getsockname()
-    tcp.close()
-    return "tcp://127.0.0.1:{}".format(port)
 
 
 class Serializable:
@@ -118,9 +128,11 @@ class EventType(str, Enum):
     JOB_SUBMITTED: str = "JOB_SUBMITTED"
     JOB_COMPLETED: str = "JOB_COMPLETED"
     JOB_KILLED: str = "JOB_KILLED"
-    RESOURCE_STATE_CHANGED: str = "RESOURCE_STATE_CHANGED"
     REQUESTED_CALL: str = "REQUESTED_CALL"
     NOTIFY: str = "NOTIFY"
+    JOB_STARTED: str = "JOB_STARTED"
+    RESOURCE_STATE_CHANGED: str = "RESOURCE_STATE_CHANGED"
+    RESOURCE_POWER_STATE_CHANGED: str = "RESOURCE_POWER_STATE_CHANGED"
 
 
 class RequestType(str, Enum):
@@ -221,6 +233,17 @@ class JobSubmittedEvent(Event):
         super().__init__(timestamp, EventType.JOB_SUBMITTED, data)
 
 
+class JobStartedEvent(Event):
+    class __data__:
+        def __init__(self, job_id, alloc):
+            self.job_id = job_id
+            self.alloc = list(ProcSet.from_str(alloc))
+
+    def __init__(self, timestamp, job_id, alloc):
+        data = self.__data__(job_id, alloc)
+        super().__init__(timestamp, EventType.JOB_STARTED, data)
+
+
 class JobCompletedEvent(Event):
     class __data__:
         def __init__(self, job_id, job_state, return_code, alloc):
@@ -234,11 +257,22 @@ class JobCompletedEvent(Event):
         super().__init__(timestamp, EventType.JOB_COMPLETED, data)
 
 
+class ResourcePowerStateChangedEvent(Event):
+    class __data__:
+        def __init__(self, resources, pstate):
+            self.resources = list(ProcSet.from_str(resources))
+            self.pstate = pstate
+
+    def __init__(self, timestamp, resources, pstate):
+        data = self.__data__(resources, pstate)
+        super().__init__(timestamp, EventType.RESOURCE_POWER_STATE_CHANGED, data)
+
+
 class ResourceStateChangedEvent(Event):
     class __data__:
         def __init__(self, resources, state):
             self.resources = list(ProcSet.from_str(resources))
-            self.state = state
+            self.state = ResourceState[state]
 
     def __init__(self, timestamp, resources, state):
         data = self.__data__(resources, state)
@@ -405,6 +439,13 @@ class NetworkHandler:
         assert self.socket, "Connection not open"
         self.socket.send_json(msg, cls=MessageEncoder)
 
+    def flush(self, blocking = False):
+        assert self.socket, "Connection not open"
+        try:
+            self.socket.recv(flags=zmq.NOBLOCK)
+        except zmq.Again as e:
+            pass
+
     def recv(self):
         assert self.socket, "Connection not open"
         return self.socket.recv_json(object_hook=message_decoder)
@@ -429,107 +470,124 @@ class NetworkHandler:
             self.socket = None
 
 
-class ProtocolHandler:
-    WORKLOAD_JOB_SEPARATOR = "!"
-    ATTEMPT_JOB_SEPARATOR = "#"
-    WORKLOAD_JOB_SEPARATOR_REPLACEMENT = "%"
-
-    def __init__(self, address=None):
-        if address is None:
-            address = get_free_tcp_address()
-        self._network = NetworkHandler(address)
-        self._requests = SortedList([], key=lambda r: r.timestamp)
-        self._current_time = 0.0
-        self.__callbacks = {k: [] for k in EventType}
-
+class SimulationProtocol(ABC):
+    @abstractproperty
     @property
     def address(self):
-        return self._network.address
+        raise NotImplementedError
 
+    @abstractproperty
+    @property
+    def is_running(self):
+        raise NotImplementedError
+
+    @abstractproperty
     @property
     def current_time(self):
-        return self._current_time  # float("%4.f" % self._current_time)
+        raise NotImplementedError
 
+    @abstractmethod
     def ack(self):
-        self._network.send(Message(self.current_time, []))
+        raise NotImplementedError
 
-    def set_callback(self, event_type, call):
-        self.__callbacks[event_type].append(call)
-
+    @abstractmethod
     def proceed_simulation(self):
-        self._handle_events(self._send_and_recv())
+        raise NotImplementedError
 
+    @abstractmethod
     def start(self):
-        self._network.bind()
-        self._handle_events(self._read_events())
+        raise NotImplementedError
 
-    def close(self):
-        self._requests.clear()
-        self._current_time = 0.0
-        self._network.close()
+    @abstractmethod
+    def finish(self):
+        raise NotImplementedError
 
+    @abstractmethod
     def execute_job(self, job_id, alloc):
-        request = ExecuteJobRequest(self.current_time, job_id, alloc)
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def reject_job(self, job_id):
-        request = RejectJobRequest(self.current_time, job_id)
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def call_me_later(self, when):
-        request = CallMeLaterRequest(self.current_time, when)
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def kill_job(self, job_ids):
-        request = KillJobRequest(self.current_time, job_ids)
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def register_job(self, id, profile, res, walltime):
-        request = RegisterJobRequest(
-            self.current_time, id, profile, res, walltime)
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def register_profile(self, workload_name, profile_name, profile):
-        request = RegisterProfileRequest(
-            self.current_time, workload_name, profile_name, profile
-        )
-        self._append_request(request)
+        raise NotImplementedError
 
-    def set_resources_state(self, resources, state):
-        request = SetResourceStateRequest(self.current_time, resources, state)
-        self._append_request(request)
+    @abstractmethod
+    def set_resources_pstate(self, resources, state):
+        raise NotImplementedError
 
+    @abstractmethod
     def change_job_state(self, job_id, job_state, kill_reason):
-        request = ChangeJobStateRequest(
-            self.current_time, job_id, job_state, kill_reason
-        )
-        self._append_request(request)
+        raise NotImplementedError
 
+    @abstractmethod
     def notify(self, notify_type):
-        request = Notify(self.current_time, NotifyType[notify_type])
-        self._append_request(request)
+        raise NotImplementedError
 
-    def _append_request(self, request):
-        assert isinstance(request, Request) or isinstance(request, Notify)
-        self._requests.add(request)
+    @abstractmethod
+    def set_callback(self, event_type, call):
+        raise NotImplementedError
 
-    def _handle_events(self, events):
-        for e in events:
-            for callback in self.__callbacks[e.type]:
-                callback(e.data)
 
-    def _read_events(self):
-        msg = self._network.recv()
-        self._current_time = msg.now
-        return msg.events
+class SimulationEventHandler(ABC):
+    def __init__(self, simulator):
+        self.simulator = simulator
+        self.simulator.set_callback(
+            EventType.JOB_COMPLETED, self.on_job_completed)
+        self.simulator.set_callback(
+            EventType.JOB_SUBMITTED, self.on_job_submitted)
+        self.simulator.set_callback(
+            EventType.JOB_STARTED, self.on_job_started)
+        self.simulator.set_callback(
+            EventType.SIMULATION_BEGINS, self.on_simulation_begins)
+        self.simulator.set_callback(
+            EventType.SIMULATION_ENDS, self.on_simulation_ends)
+        self.simulator.set_callback(
+            EventType.JOB_KILLED, self.on_job_killed)
+        self.simulator.set_callback(
+            EventType.REQUESTED_CALL, self.on_requested_call)
+        self.simulator.set_callback(
+            EventType.RESOURCE_POWER_STATE_CHANGED, self.on_resource_power_state_changed)
+        self.simulator.set_callback(
+            EventType.NOTIFY, self.on_notify)
 
-    def _send_requests(self):
-        msg = Message(self.current_time, list(self._requests))
-        self._requests.clear()
-        self._network.send(msg)
+    def on_simulation_begins(self, timestamp, data):
+        pass
 
-    def _send_and_recv(self):
-        self._send_requests()
-        return self._read_events()
+    def on_simulation_ends(self, timestamp, data):
+        pass
 
-# msg = '{"now":0.000000,"events":[{"timestamp":0.000000,"type":"SIMULATION_BEGINS","data":{"nb_resources":168,"nb_compute_resources":168,"nb_storage_resources":0,"allow_compute_sharing":false,"allow_storage_sharing":true,"config":{"redis-enabled":false,"redis-hostname":"127.0.0.1","redis-port":6379,"redis-prefix":"default","profiles-forwarded-on-submission":false,"dynamic-jobs-enabled":false,"dynamic-jobs-acknowledged":false,"forward-unknown-events":false},"compute_resources":[{"id":0,"name":"0","state":"idle","properties":{"role":"","watt_off":"9","watt_per_state":"9:9,95.0:190.0,125.0:125.0,101.0:101.0","sleep_pstates":"0:3:2"},"zone_properties":{"cores_per_node":"1"}},{"id":1,"name":"1","state":"idle","properties":{"role":"","watt_off":"9","watt_per_state":"9:9,95.0:190.0,125.0:125.0,101.0:101.0","sleep_pstates":"0:3:2"},"zone_properties":{"cores_per_node":"1"}},{"id":2,"name":"10","state":"idle","properties":{"role":"","watt_off":"9","watt_per_state":"9:9,95.0:190.0,125.0:125.0,101.0:101.0","sleep_pstates":"0:3:2"},"zone_properties":{"cores_per_node":"1"}}]}}]}'
+    def on_job_submitted(self, timestamp, data):
+        pass
+
+    def on_job_started(self, timestamp, data):
+        pass
+
+    def on_job_completed(self, timestamp, data):
+        pass
+
+    def on_job_killed(self, timestamp, data):
+        pass
+
+    def on_requested_call(self, timestamp, data):
+        pass
+
+    def on_notify(self, timestamp, data):
+        pass
+
+    def on_resource_power_state_changed(self, timestamp, data):
+        pass

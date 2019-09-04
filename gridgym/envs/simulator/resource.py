@@ -13,6 +13,9 @@ class PowerStateType(Enum):
     switching_off = 3
 
     def __str__(self):
+        return "%s" % self.__repr__()
+
+    def __repr__(self):
         return self.name
 
     def __eq__(self, value):
@@ -29,6 +32,9 @@ class ResourceState(Enum):
     computing = 4
 
     def __str__(self):
+        return "%s" % self.__repr__()
+
+    def __repr__(self):
         return self.name
 
     def __eq__(self, value):
@@ -37,38 +43,61 @@ class ResourceState(Enum):
         return super().__eq__(value)
 
 
+class PowerProfile(object):
+    def __init__(self, minimum, maximum):
+        assert maximum >= minimum
+        self.minimum = minimum
+        self.maximum = maximum
+
+
 class PowerState(object):
-    def __init__(self, id, pstate_type, idle_power, comp_power):
+    def __init__(self, id, pstate_type, profile, speed):
+        assert isinstance(profile, PowerProfile)
         self.id = id
         self.type = pstate_type
-        self.idle_power = idle_power
-        self.comp_power = comp_power
+        self.profile = profile
+        self.speed = speed
+
+    @property
+    def power_max(self):
+        return self.profile.maximum
+
+    @property
+    def power_min(self):
+        return self.profile.minimum
 
     def __eq__(self, value):
         return self.id == value.id
 
 
 class Resource(object):
-    def __init__(self, id, parent_id, name, state, role, power_states):
-        assert isinstance(state, ResourceState)
+    def __init__(self, id, parent_id, name, pstate_id, role, power_states):
         self.power_states = sorted(power_states, key=lambda p: int(p.id))
         self.id = id
         self.parent_id = parent_id
         self.name = name
-        self.state = state
         self.role = role
+
         self.pstate = next(
-            ps for ps in self.power_states if ps.type == PowerStateType.computation
-        )
-        self.allocated_job = None
+            ps for ps in self.power_states if ps.id == pstate_id)
+        if self.pstate.type == PowerStateType.computation:
+            self.state = ResourceState.idle
+        elif self.pstate.type == PowerStateType.sleep:
+            self.state = ResourceState.sleeping
+        else:
+            raise AttributeError
 
     @property
     def power(self):
         return (
-            self.pstate.comp_power
+            self.pstate.power_max
             if self.state == ResourceState.computing
-            else self.pstate.idle_power
+            else self.pstate.power_min
         )
+
+    @property
+    def speed(self):
+        return self.pstate.speed
 
     @property
     def is_idle(self):
@@ -90,14 +119,6 @@ class Resource(object):
     def is_sleeping(self):
         return self.state == ResourceState.sleeping
 
-    @property
-    def is_reserved(self):
-        return self.allocated_job != None
-
-    def reserve(self, job):
-        assert not self.is_reserved
-        self.allocated_job = job
-
     def get_power_state(self, pstate_id):
         return self.power_states[int(pstate_id)]
 
@@ -107,12 +128,10 @@ class Resource(object):
         self.start_computing()
 
     def start_computing(self):
-        assert self.is_reserved
-        assert self.is_idle
+        assert self.is_idle and self.pstate.type == PowerStateType.computation
         self.state = ResourceState.computing
 
     def release(self):
-        self.allocated_job = None
         self.state = ResourceState.idle
 
     def sleep(self):
@@ -146,16 +165,19 @@ class Resource(object):
 
 class Node:
     def __init__(self, id, resources):
-        assert resources
-        power_states = resources[0].power_states
-        assert all(
-            r.parent_id == id and r.power_states == power_states for r in resources
-        )
+        assert len(resources) > 0
+        assert all(r.parent_id == id and r.power_states ==
+                   resources[0].power_states for r in resources)
         self.id = id
         self.resources = resources
-        self.power_states = power_states
         self.nb_resources = len(resources)
-        self.nb_state_switches = 0
+        self.power_states = [
+            PowerState(ps.id,
+                       ps.type,
+                       PowerProfile(ps.power_min * self.nb_resources,
+                                    ps.power_max * self.nb_resources),
+                       ps.speed) for ps in resources[0].power_states
+        ]
 
     @property
     def state(self):
@@ -166,8 +188,13 @@ class Node:
         return sum(r.power for r in self.resources)
 
     @property
+    def load(self):
+        l = len([r for r in self.resources if r.is_computing])
+        return l / self.nb_resources
+
+    @property
     def is_idle(self):
-        return self.is_on and all(not r.is_reserved for r in self.resources)
+        return self.is_on and all(r.is_idle for r in self.resources)
 
     @property
     def is_off(self):
@@ -195,12 +222,10 @@ class Node:
     def sleep(self):
         for r in self.resources:
             r.sleep()
-        self.nb_state_switches += 1
 
     def wakeup(self):
         for r in self.resources:
             r.wakeup()
-        self.nb_state_switches += 1
 
 
 class Platform:
