@@ -17,41 +17,24 @@ class OffReservationEnv(GridEnv):
     MAX_QUEUE_SZ = 10
     ACT_INTERVAL = 1  # minutes
     SIMULATION_TIME = 1440  # 60 * 60 * 24  # minutes
-    TRACE = True
-
-    # Reward Metrics
-    MAX_WAITING_TIME = 30  # minutes
-    MIN_IDLE_TIME = 15  # minutes
+    TRACE = False
 
     def __init__(self):
         super().__init__(use_batsim=False)
         self.reservation_size = 0
-        self.scheduler = SAFBackfilling()
-
-        for ps in self.rjms.platform.nodes[0].power_states:
-            if ps.type == PowerStateType.computation:
-                p_idle = ps.power_min
-            elif ps.type == PowerStateType.switching_off:
-                p_turn_off = ps.power_min
-                t_turn_off = 1 / ps.speed
-            elif ps.type == PowerStateType.switching_on:
-                p_turn_on = ps.power_min
-                t_turn_on = 1 / ps.speed
-
-        self.p_max = max(p_idle, p_turn_off, p_turn_on)
-        p_idle /= self.p_max
-        p_turn_off /= self.p_max
-        p_turn_on /= self.p_max
-        p_switch = (p_turn_off * t_turn_off) + (p_turn_on * t_turn_on)
-
-        self.switch_penalty = ((self.MIN_IDLE_TIME + self.ACT_INTERVAL) * p_idle) / p_switch
-        self.qos_penalty = (p_turn_on * t_turn_on) * self.switch_penalty
+        self.scheduler = EASYBackfilling()
 
     def reset(self):
         self.reservation_size = 0
-        self.last_platform_state = {
-            n.id: n.state.type for n in self.rjms.platform.nodes}
         return super().reset()
+
+    def _get_queue(self):
+        #queue = list(self.rjms.jobs_queue)
+        # if len(queue) > 0:
+        #    p_job = queue.pop(0)
+        #    sorted(queue, key=lambda j: j.walltime * j.res)
+        #    queue.insert(0, p_job)
+        return self.rjms.jobs_queue  # np.asarray(queue)
 
     def step(self, action):
         assert self.rjms.is_running, "Simulation is not running."
@@ -61,7 +44,7 @@ class OffReservationEnv(GridEnv):
         reserved = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
         reserved.sort()
         jobs_to_start = self.scheduler.schedule(
-            self.rjms.jobs_queue[:self.MAX_QUEUE_SZ],
+            self._get_queue()[:self.MAX_QUEUE_SZ],
             reserved[self.reservation_size * self.rjms.platform.nodes[0].nb_resources:])
 
         for job_id in jobs_to_start:
@@ -107,8 +90,7 @@ class OffReservationEnv(GridEnv):
 
         # delimit the reservation size
         nodes_available = self.rjms.agenda.get_available_nodes()
-        if size <= len(nodes_available):
-            self.reservation_size = size  # min(size, len(nodes_available))
+        self.reservation_size = min(size, len(nodes_available))
 
         # Just update the scheduler to see if we delay the priority job
         pjob = self.rjms.jobs_queue[0] if self.rjms.queue_lenght > 0 else None
@@ -126,56 +108,29 @@ class OffReservationEnv(GridEnv):
             nb_to_turn_off = max(0, self.reservation_size - nb_not_on)
             self.rjms.turn_off(*nodes_on[:nb_to_turn_off])
 
-    def _get_info(self):
-        # def get_next_submissions():
-        #    upper_bound = self.rjms.current_time + 360
-        #    next_submission = next((idx for idx, j in enumerate(
-        #        self.current_workload.jobs) if j.subtime > self.rjms.current_time), None)
-        #    next_submissions = []
-        #    if next_submission:
-        #        for j in itertools.takewhile(lambda j: j.subtime <= upper_bound, self.current_workload.jobs[next_submission:]):
-        #            next_submissions.append({
-        #                'subtime': j.subtime,
-        #                'res': j.res,
-        #                'walltime': j.walltime,
-        #                'expected_time_to_start': j.expected_time_to_start
-        #            })
-        #    return next_submissions
-        #
-        # if not self.rjms.is_running:
-            # return {k: v for k, v in self.scheduler_monitor.info.items()}
-        # else:
-        return {}
-
     def _get_reward(self):
         energy_waste = 0
         for n in self.rjms.platform.nodes:
             p_max = max(ps.power_min for ps in n.power_states)
-            if n.is_switching_on or n.is_switching_off :
-                energy_waste += (n.power / p_max) * self.switch_penalty
-            elif n.is_idle:
+            if n.is_switching_off or n.is_switching_on or n.is_idle:
                 energy_waste += n.power / p_max
+            #   energy_waste += (n.power / p_max) * self.switch_off_penalty
         energy_waste /= self.rjms.platform.nb_nodes
 
-        total_res = qos = 0
-        for job in self.rjms.jobs_queue:
-            res_norm = (job.res / self.rjms.platform.nb_resources)
-            job_qos = (res_norm * self.qos_penalty) / self.MAX_WAITING_TIME
-            qos += job_qos
-            total_res += job.res
-            if total_res >= self.rjms.platform.nb_resources * 3:
-                break
-        # if self.reservation_size != 0 and len(queue) > 0:
-        #    r = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
-        #    old_p = self.scheduler.priority_job
-        #    jobs_ready = self.scheduler.schedule(queue, r)
-        #    self.scheduler.priority_job = old_p
-        #    # for job_id in jobs_ready:
-        #    #    job = next(j for j in queue if j.id == job_id)
-        #    # if (self.rjms.current_time - job.subtime) >= self.MAX_WAITING_TIME:
-        #    #    qos += job.res / self.rjms.platform.nb_resources
+        #nb_jobs = len(self._get_queue())
+        queue = self._get_queue()[:self.MAX_QUEUE_SZ]
+        qos = 0
+        #qos = min(1, nb_jobs * (1/self.MAX_WAITING_TIME))
+        if self.reservation_size != 0 and len(queue) > 0:
+            r = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
+            jobs_ready = self.scheduler.schedule(queue, r)
+            for job_id in jobs_ready:
+                job = next(j for j in queue if j.id == job_id)
+                if (self.rjms.current_time - job.subtime) > (job.walltime / 2.):
+                    qos += job.res
+            qos /= self.rjms.platform.nb_resources
         #    qos = len(jobs_ready) / self.MAX_WAITING_TIME
-        #res = sum(j.res for j in self.rjms.jobs_queue)#[:self.MAX_QUEUE_SZ]
+        # res = sum(j.res for j in self.rjms.jobs_queue)#[:self.MAX_QUEUE_SZ]
         #nb_cores = self.rjms.platform.nodes[0].nb_resources
        # qos = min(self.rjms.platform.nb_nodes*self.MAX_WAITING_TIME, math.ceil(res / nb_cores))
         #qos /= self.rjms.platform.nb_nodes
@@ -190,12 +145,12 @@ class OffReservationEnv(GridEnv):
         nb_reserved = self.reservation_size * \
             self.rjms.platform.nodes[0].nb_resources
         self.scheduler.schedule(
-            self.rjms.jobs_queue[:self.MAX_QUEUE_SZ],
+            self._get_queue()[:self.MAX_QUEUE_SZ],
             reserved[nb_reserved:])
 
         obs['queue'] = np.asarray(
             [[j.subtime, j.res, j.walltime, j.expected_time_to_start]
-                for j in self.rjms.jobs_queue]
+                for j in self._get_queue()]
         )
 
         obs['platform'] = np.zeros(
@@ -255,3 +210,24 @@ class OffReservationEnv(GridEnv):
         act_space = spaces.Discrete(self.rjms.platform.nb_nodes + 1)
         self.rjms.close()
         return obs_space, act_space
+
+    def _get_info(self):
+        # def get_next_submissions():
+        #    upper_bound = self.rjms.current_time + 360
+        #    next_submission = next((idx for idx, j in enumerate(
+        #        self.current_workload.jobs) if j.subtime > self.rjms.current_time), None)
+        #    next_submissions = []
+        #    if next_submission:
+        #        for j in itertools.takewhile(lambda j: j.subtime <= upper_bound, self.current_workload.jobs[next_submission:]):
+        #            next_submissions.append({
+        #                'subtime': j.subtime,
+        #                'res': j.res,
+        #                'walltime': j.walltime,
+        #                'expected_time_to_start': j.expected_time_to_start
+        #            })
+        #    return next_submissions
+        #
+        # if not self.rjms.is_running:
+            # return {k: v for k, v in self.scheduler_monitor.info.items()}
+        # else:
+        return {}

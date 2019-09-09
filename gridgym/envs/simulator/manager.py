@@ -49,17 +49,24 @@ class ResourceManager(SimulationEventHandler):
     def jobs_running(self):
         return np.asarray(list(self.__jobs["running"].values()))
 
+    @property
+    def queue_lenght(self):
+        return len(self.__jobs['queue'])
+
     def start(self, platform_fn, workload_fn=None, output_dir=None, simulation_time=None):
         assert not self.is_running, "A simulation is already running."
         assert not simulation_time or simulation_time > 0
         self.simulation_time = simulation_time
         self.simulator.start(platform_fn, output_dir=output_dir)
+        self.__jobs = {"queue": [], "running": {}, "ready": []}
+        self.submitter_ended = False
         if workload_fn:
             self._job_submitter.start(workload_fn)
 
     def close(self):
         if self.simulator.is_running:
             self.simulator.finish()
+        self.__jobs = {"queue": [], "running": {}, "ready": []}
         self._job_submitter.close()
 
     def proceed_time(self, until=0):
@@ -81,14 +88,13 @@ class ResourceManager(SimulationEventHandler):
                 self.simulator.proceed_simulation()
 
     def on_simulation_begins(self, timestamp, data):
-        self.__jobs = {"queue": [], "running": {}, "ready": []}
-        self.submitter_ended = False
         self.platform = data.platform
         self.agenda = Agenda(self.platform)
         if self.simulation_time:
             self.simulator.call_me_later(self.simulation_time)
 
     def on_simulation_ends(self, timestamp, data):
+        self.__jobs = {"queue": [], "running": {}, "ready": []}
         self._job_submitter.close()
 
     def on_job_submitted(self, timestamp, data):
@@ -204,18 +210,18 @@ class ResourceManager(SimulationEventHandler):
 class Agenda():
     def __init__(self, platform):
         self.platform = platform
-        self.reservations = SortedDict(
-            {r.id: None for r in platform.resources})
+        self.reservations = SortedDict(lambda k: int(
+            k.id), {r: None for r in platform.resources})
 
     def get_available_nodes(self):
         nodes = []
-        for node_id, reservations in groupby(self.reservations.items(), key=lambda item: self.platform.get_resource(item[0]).parent_id):
+        for node_id, reservations in groupby(self.reservations.items(), key=lambda it: it[0].parent_id):
             if all(j is None for (r, j) in reservations):
                 nodes.append(self.platform.get_node(node_id))
         return np.asarray(nodes)
 
     def get_available_resources(self):
-        return np.asarray(self.platform.get_resources([r for r, j in self.reservations.items() if j is None]))
+        return np.asarray([r for r, j in self.reservations.items() if j is None])
 
     def reserve(self, job):
         assert all(self.reservations[r] is None for r in job.allocation)
@@ -227,25 +233,25 @@ class Agenda():
             self.reservations[r] = None
 
     def get_progress(self, current_time):
-        remaining = []
-        for r, j in self.reservations.items():
+        remaining = np.zeros(shape=len(self.reservations))
+        for i, (r, j) in enumerate(self.reservations.items()):
             if j is None:
-                remaining.append(0)
+                remaining[i] = 0
             elif j.state == JobState.RUNNING:
                 runtime = current_time - j.start_time
-                remaining.append(1 - (runtime / j.walltime))
+                remaining[i] = 1 - (runtime / j.walltime)
             else:
-                remaining.append(1)
-        return np.asarray(remaining)
+                remaining[i] = 1
+        return remaining
 
     def get_reserved_time(self, current_time):
-        reserved = []
-        for r, j in self.reservations.items():
+        reserved = np.zeros(shape=len(self.reservations))
+        for i, (r, j) in enumerate(self.reservations.items()):
             if j is None:
-                reserved.append(0)
+                reserved[i] = 0
             elif j.state == JobState.RUNNING:
                 end_time = j.start_time + j.walltime
-                reserved.append(end_time - current_time)
+                reserved[i] = end_time - current_time
             else:
-                reserved.append(current_time + j.walltime)
-        return np.asarray(reserved)
+                reserved[i] = j.walltime
+        return reserved

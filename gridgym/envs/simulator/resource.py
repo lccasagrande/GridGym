@@ -70,10 +70,29 @@ class PowerState(object):
         return self.id == value.id
 
 
-class Resource(object):
-    def __init__(self, id, parent_id, name, pstate_id, role, power_states):
-        self.power_states = sorted(power_states, key=lambda p: int(p.id))
+class Id(object):
+    def __init__(self, id):
+        assert isinstance(id, int)
         self.id = id
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.id == other.id
+        elif isinstance(other, int):
+            return self.id == other
+        return False
+
+
+class Resource(Id):
+    def __init__(self, id, parent_id, name, pstate_id, role, power_states):
+        super().__init__(id)
+        self.power_states = sorted(power_states, key=lambda p: int(p.id))
         self.parent_id = parent_id
         self.name = name
         self.role = role
@@ -86,6 +105,9 @@ class Resource(object):
             self.state = ResourceState.sleeping
         else:
             raise AttributeError
+
+    def __repr__(self):
+        return "Resource_%i" % self.id
 
     @property
     def power(self):
@@ -163,12 +185,12 @@ class Resource(object):
             self.pstate = pstate
 
 
-class Node:
+class Node(Id):
     def __init__(self, id, resources):
         assert len(resources) > 0
         assert all(r.parent_id == id and r.power_states ==
                    resources[0].power_states for r in resources)
-        self.id = id
+        super().__init__(id)
         self.resources = resources
         self.nb_resources = len(resources)
         self.power_states = [
@@ -178,6 +200,9 @@ class Node:
                                     ps.power_max * self.nb_resources),
                        ps.speed) for ps in resources[0].power_states
         ]
+
+    def __repr__(self):
+        return "Node_%i" % self.id
 
     @property
     def state(self):

@@ -119,6 +119,9 @@ class GridSimulationHandler(SimulationProtocol):
         self.__profiles.clear()
         self.__jobs = {}
 
+    def get_next_event_time(self):
+        return self.__events[0].timestamp if self.__events else 0
+
     def execute_job(self, job_id, alloc):
         allocation = str(ProcSet(*alloc))
         event_1 = JobStartedEvent(self.current_time, job_id, allocation)

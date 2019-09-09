@@ -44,7 +44,7 @@ class GridEnv(gym.Env):
         self.rjms.start(platform_fn=self.PLATFORM,
                         output_dir=self.OUTPUT,
                         simulation_time=self.SIMULATION_TIME)
-        #np.random.shuffle(self.workloads)
+        np.random.shuffle(self.workloads)
         self.job_submitter.start(self.workloads)
         return self._get_obs()
 
