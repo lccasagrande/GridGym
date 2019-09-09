@@ -114,13 +114,10 @@ class OffReservationEnv(GridEnv):
             p_max = max(ps.power_min for ps in n.power_states)
             if n.is_switching_off or n.is_switching_on or n.is_idle:
                 energy_waste += n.power / p_max
-            #   energy_waste += (n.power / p_max) * self.switch_off_penalty
         energy_waste /= self.rjms.platform.nb_nodes
 
-        #nb_jobs = len(self._get_queue())
         queue = self._get_queue()[:self.MAX_QUEUE_SZ]
         qos = 0
-        #qos = min(1, nb_jobs * (1/self.MAX_WAITING_TIME))
         if self.reservation_size != 0 and len(queue) > 0:
             r = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
             jobs_ready = self.scheduler.schedule(queue, r)
@@ -129,11 +126,6 @@ class OffReservationEnv(GridEnv):
                 if (self.rjms.current_time - job.subtime) > (job.walltime / 2.):
                     qos += job.res
             qos /= self.rjms.platform.nb_resources
-        #    qos = len(jobs_ready) / self.MAX_WAITING_TIME
-        # res = sum(j.res for j in self.rjms.jobs_queue)#[:self.MAX_QUEUE_SZ]
-        #nb_cores = self.rjms.platform.nodes[0].nb_resources
-       # qos = min(self.rjms.platform.nb_nodes*self.MAX_WAITING_TIME, math.ceil(res / nb_cores))
-        #qos /= self.rjms.platform.nb_nodes
         return -1 * (energy_waste + qos)
 
     def _get_obs(self, reward=0):
