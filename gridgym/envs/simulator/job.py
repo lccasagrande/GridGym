@@ -44,6 +44,9 @@ class Job():
         self.allocation = None  # will be set on scheduling
         self.expected_time_to_start = -1.  # will be set on scheduling
 
+    def __repr__(self):
+        return "Job_%s" % self.id
+
     @property
     def workload_name(self):
         return self.id[:self.id.find("!")]

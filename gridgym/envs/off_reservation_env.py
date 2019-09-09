@@ -23,18 +23,26 @@ class OffReservationEnv(GridEnv):
         super().__init__(use_batsim=False)
         self.reservation_size = 0
         self.scheduler = EASYBackfilling()
+        self.workload_name = ""
 
     def reset(self):
         self.reservation_size = 0
-        return super().reset()
+        o = super().reset()
+        self.workload_name = self.job_submitter.current_workload.name
+        return o
 
-    def _get_queue(self):
-        #queue = list(self.rjms.jobs_queue)
-        # if len(queue) > 0:
-        #    p_job = queue.pop(0)
-        #    sorted(queue, key=lambda j: j.walltime * j.res)
-        #    queue.insert(0, p_job)
-        return self.rjms.jobs_queue  # np.asarray(queue)
+    def _get_queue(self, maxlen=0):
+        assert maxlen >= 0
+        s_queue = []
+        if self.rjms.queue_lenght > 0:
+            queue = self.rjms.jobs_queue
+            s_queue.append(queue[0])
+            for j in sorted(queue[1:], key=lambda j: j.walltime * j.res):
+                if len(s_queue) == maxlen:
+                    break
+                s_queue.append(j)
+        return s_queue
+        # return self.rjms.jobs_queue  # np.asarray(queue)
 
     def step(self, action):
         assert self.rjms.is_running, "Simulation is not running."
@@ -44,7 +52,7 @@ class OffReservationEnv(GridEnv):
         reserved = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
         reserved.sort()
         jobs_to_start = self.scheduler.schedule(
-            self._get_queue()[:self.MAX_QUEUE_SZ],
+            self._get_queue(self.MAX_QUEUE_SZ),
             reserved[self.reservation_size * self.rjms.platform.nodes[0].nb_resources:])
 
         for job_id in jobs_to_start:
@@ -54,18 +62,6 @@ class OffReservationEnv(GridEnv):
 
         # This should occur before proceeding time because new jobs can be submitted.
         reward = self._get_reward()
-
-        # self.history.append(self._get_obs())
-        # while self.rjms.is_running and len(jobs_ready) == 0 and not any(n.is_switching_off or n.is_switching_on or n.is_idle for n in self.rjms.platform.nodes):
-        #    next_event_time = int(self.rjms.simulator.get_next_event_time())
-        #    last = max(self.rjms.current_time, next_event_time - self.HISTORY_LENGHT)
-        #    for i in range(last+1, next_event_time, int(self.ACT_INTERVAL)):
-        #        self.rjms.proceed_time(i)
-        #        self.history.append(self._get_obs())
-        #    self.rjms.proceed_time(self.rjms.current_time + self.ACT_INTERVAL)
-        #    self.history.append(self._get_obs())
-        #    jobs_ready = self.scheduler.schedule(
-        #        self.rjms.jobs_queue[:self.MAX_QUEUE_SZ], reserved)
 
         self.rjms.proceed_time(self.rjms.current_time + self.ACT_INTERVAL)
         if self.rjms.is_running:
@@ -116,7 +112,7 @@ class OffReservationEnv(GridEnv):
                 energy_waste += n.power / p_max
         energy_waste /= self.rjms.platform.nb_nodes
 
-        queue = self._get_queue()[:self.MAX_QUEUE_SZ]
+        queue = self._get_queue(self.MAX_QUEUE_SZ)
         qos = 0
         if self.reservation_size != 0 and len(queue) > 0:
             r = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
@@ -136,9 +132,8 @@ class OffReservationEnv(GridEnv):
         reserved.sort()
         nb_reserved = self.reservation_size * \
             self.rjms.platform.nodes[0].nb_resources
-        self.scheduler.schedule(
-            self._get_queue()[:self.MAX_QUEUE_SZ],
-            reserved[nb_reserved:])
+        self.scheduler.schedule(self._get_queue(
+            self.MAX_QUEUE_SZ), reserved[nb_reserved:])
 
         obs['queue'] = np.asarray(
             [[j.subtime, j.res, j.walltime, j.expected_time_to_start]
@@ -222,4 +217,5 @@ class OffReservationEnv(GridEnv):
         # if not self.rjms.is_running:
             # return {k: v for k, v in self.scheduler_monitor.info.items()}
         # else:
-        return {}
+        info = {'workload_name': self.workload_name}
+        return info
