@@ -1,4 +1,6 @@
 
+gridgym/envs/simulator/files/output/
+gridgym/envs/simulator/files/temp/
 .vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
