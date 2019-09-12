@@ -165,8 +165,8 @@ class GridSimulationHandler(SimulationProtocol):
             self.__events.pop(p)
         self.__events.add(JobKilledEvent(self.current_time, job_ids))
 
-    def register_job(self, id, profile, res, walltime):
-        e = JobSubmittedEvent(self.current_time, id, profile, res, walltime)
+    def register_job(self, id, profile, res, walltime, user=""):
+        e = JobSubmittedEvent(self.current_time, id, profile, res, walltime, user)
         self.__jobs[id] = e.data.job
         self.__events.add(e)
 

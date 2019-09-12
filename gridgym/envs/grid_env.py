@@ -43,8 +43,9 @@ class GridEnv(gym.Env):
         self.rjms.start(platform_fn=self.PLATFORM,
                         output_dir=self.OUTPUT,
                         simulation_time=self.SIMULATION_TIME)
-        self.np_random.shuffle(self.workloads)
-        self.job_submitter.start(self.workloads)
+        #self.np_random.shuffle(self.workloads)
+        w = self.np_random.choice(self.workloads)
+        self.job_submitter.start(w)
         return self._get_obs()
 
     def seed(self, seed=None):

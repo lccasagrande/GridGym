@@ -136,8 +136,13 @@ class OffReservationEnv(GridEnv):
             self.MAX_QUEUE_SZ), reserved[nb_reserved:])
 
         obs['queue'] = np.asarray(
-            [[j.subtime, j.res, j.walltime, j.expected_time_to_start]
+            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user]
                 for j in self._get_queue()]
+        )
+
+        obs['jobs_running'] = np.asarray(
+            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user]
+                for j in self.rjms.jobs_running]
         )
 
         obs['platform'] = np.zeros(
@@ -154,8 +159,6 @@ class OffReservationEnv(GridEnv):
         for i, p in enumerate(self.rjms.agenda.get_progress(self.rjms.current_time)):
             obs['agenda'][i] = p
 
-        obs['free'] = len(
-            self.rjms.agenda.get_available_resources()) - nb_reserved
         obs['reservation_size'] = self.reservation_size
         obs['time'] = self.rjms.current_time
         obs['reward'] = reward
@@ -170,8 +173,15 @@ class OffReservationEnv(GridEnv):
         queue = spaces.Box(
             low=-1,
             high=np.iinfo(int).max,
-            shape=(self.MAX_QUEUE_SZ, 4),
+            shape=(self.MAX_QUEUE_SZ, 5),
             dtype=np.int)
+
+        jobs_running = spaces.Box(
+            low=-1,
+            high=np.iinfo(int).max,
+            shape=(self.rjms.platform.nb_resources, 5),
+            dtype=np.int)
+
         platform = spaces.Box(
             low=0,
             high=5,
@@ -187,9 +197,9 @@ class OffReservationEnv(GridEnv):
 
         obs_space = spaces.Dict({
             'queue': queue,
+            'jobs_running': queue,
             'platform': platform,
             'agenda': agenda,
-            'free': spaces.Discrete(self.rjms.platform.nb_nodes + 1),
             'reservation_size': spaces.Discrete(self.rjms.platform.nb_nodes + 1),
             'time': spaces.Box(low=0, high=np.iinfo(int).max, shape=(), dtype=np.int),
             'reward': spaces.Box(low=0, high=np.iinfo(int).max, shape=(), dtype=np.int)

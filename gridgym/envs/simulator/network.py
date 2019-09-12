@@ -224,12 +224,12 @@ class ParallelHomogeneousTotalProfile(WorkloadProfile):
 
 class JobSubmittedEvent(Event):
     class __data__:
-        def __init__(self, id, timestamp, profile, res, walltime):
+        def __init__(self, id, timestamp, profile, res, walltime, user):
             self.job_id = id
-            self.job = Job(id, res, walltime, profile, timestamp)
+            self.job = Job(id, res, walltime, profile, timestamp, user)
 
-    def __init__(self, timestamp, id, profile, res, walltime):
-        data = self.__data__(id, timestamp, profile, res, walltime)
+    def __init__(self, timestamp, id, profile, res, walltime, user=""):
+        data = self.__data__(id, timestamp, profile, res, walltime, user)
         super().__init__(timestamp, EventType.JOB_SUBMITTED, data)
 
 

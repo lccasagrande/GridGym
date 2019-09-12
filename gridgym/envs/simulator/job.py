@@ -31,13 +31,14 @@ class JobState(Enum):
 
 
 class Job():
-    def __init__(self, id, res, walltime, profile, subtime):
+    def __init__(self, id, res, walltime, profile, subtime, user=""):
         self.id = id
         self.walltime = walltime
         self.res = res
         self.profile = profile
         self.subtime = subtime
         self.state = JobState.SUBMITTED
+        self.user = user
 
         self.start_time = -1.  # will be set on start
         self.stop_time = -1.  # will be set on terminate

@@ -32,7 +32,8 @@ class Workload():
                 res=j['res'],
                 walltime=j['walltime'],
                 profile=j['profile'],
-                subtime=j['subtime']) for j in data['jobs']]
+                subtime=j['subtime'],
+                user=j.get('user', "")) for j in data['jobs']]
             self.jobs.sort(key=lambda j: j.subtime)
 
 
@@ -93,7 +94,8 @@ class JobSubmitter(SimulationEventHandler):
                 job.id,
                 job.profile,
                 job.res,
-                job.walltime
+                job.walltime,
+                job.user
             )
 
         if len(self.current_workload.jobs) == 0:
