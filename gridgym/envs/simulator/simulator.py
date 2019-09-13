@@ -232,6 +232,11 @@ class BatsimSimulationHandler(SimulationProtocol):
     WORKLOAD_JOB_SEPARATOR_REPLACEMENT = "%"
 
     def __init__(self, address=None):
+        from shutil import which
+
+        if which('batsim') is None:
+            raise ImportError("(HINT: you need to install Batsim. Check the setup instructions here: https://batsim.readthedocs.io/en/latest/.)")
+
         if address is None:
             address = get_free_tcp_address()
         self.__network = NetworkHandler(address)

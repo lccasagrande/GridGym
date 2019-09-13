@@ -1,10 +1,10 @@
 from setuptools import setup
-from shutil import which
+#from shutil import which
 import sys
 
 
-if which('batsim') is None:
-    raise ImportError("(HINT: you need to install Batsim. Check the setup instructions here: https://batsim.readthedocs.io/en/latest/.)")
+#if which('batsim') is None:
+#    raise ImportError("(HINT: you need to install Batsim. Check the setup instructions here: https://batsim.readthedocs.io/en/latest/.)")
 
 setup(name='GridGym',
       author='lccasagrande',
