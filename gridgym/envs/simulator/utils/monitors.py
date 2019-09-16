@@ -93,9 +93,10 @@ class JobMonitor(SimulationMonitor):
 
 
 class JobsStatsMonitor(SimulationMonitor):
-    def __init__(self, simulator):
+    def __init__(self, simulator, qos_stretch=None):
         super().__init__(simulator)
         self._jobs = {}
+        self.qos_stretch = qos_stretch
         self.info = {
             'makespan': 0,
             'max_slowdown': 0,
@@ -106,6 +107,8 @@ class JobsStatsMonitor(SimulationMonitor):
             'mean_stretch': 0,
             'mean_waiting_time': 0,
             'mean_turnaround_time': 0,
+            'qos_violations': 0,
+            'mean_qos_delay': 0,
             'nb_jobs': 0,
             'nb_jobs_finished': 0,
             'nb_jobs_killed': 0,
@@ -127,6 +130,7 @@ class JobsStatsMonitor(SimulationMonitor):
         self.info['mean_slowdown'] /= nb_finished
         self.info['mean_stretch'] /= nb_finished
         self.info['mean_turnaround_time'] /= nb_finished
+        self.info['mean_qos_delay'] /= self.info['qos_violations']
 
     def on_job_submitted(self, timestamp, data):
         self.info['nb_jobs'] += 1
@@ -136,6 +140,10 @@ class JobsStatsMonitor(SimulationMonitor):
         job = self._jobs[data.job_id]
         job.set_allocation(data.alloc)
         job.start(timestamp)
+        if job.waiting_time / job.walltime >= self.qos_stretch:
+            self.info['qos_violations'] += 1
+            self.info['mean_qos_delay'] += job.waiting_time - \
+                (job.walltime * self.qos_stretch)
 
     def on_job_completed(self, timestamp, data):
         job = self._jobs[data.job_id]
@@ -270,16 +278,127 @@ class ResourceStatsMonitor(SimulationMonitor):
         self.info['nb_switches'] += len(set(nodes))
 
 
-class SchedulerStatsMonitor(SimulationMonitor):
+class NodeStatsMonitor(SimulationMonitor):
     def __init__(self, simulator):
         super().__init__(simulator)
-        self.job_monitor = JobsStatsMonitor(simulator)
-        self.resource_monitor = ResourceStatsMonitor(simulator)
+        self.last_node_state = self._platform = self._jobs_running = None
+        self.info = {
+            'time_idle':  0,
+            'time_computing':  0,
+            'time_switching_off':  0,
+            'time_switching_on':  0,
+            'time_sleeping':  0,
+            'consumed_joules':  0,
+            'energy_waste':  0,
+            'nb_switches': 0,
+        }
+
+    def to_csv(self, fn):
+        pd.DataFrame.from_dict(
+            self.info, orient='index').T.to_csv(fn, index=False)
+
+    def on_simulation_begins(self, timestamp, data):
+        self._jobs_running = {}
+        self._platform = data.platform
+        self.last_node_state = {
+            n.id: (n.state, n.load, timestamp) for n in self._platform.nodes}
+
+        self.info = {k: 0 for k in self.info.keys()}
+
+    def on_simulation_ends(self, timestamp, data):
+        nodes = [n.id for n in self._platform.nodes]
+        self._update_node_state(timestamp, nodes)
+        self.last_node_state = self._platform = self._jobs_running = None
+
+    def on_job_started(self, timestamp, data):
+        self._jobs_running[data.job_id] = data.alloc
+
+        res = self._platform.get_resources(data.alloc)
+        for node_id, r in groupby(res, key=lambda r: r.parent_id):
+            self._update_node_state(timestamp, [node_id], cores=len(list(r)))
+
+    def on_job_completed(self, timestamp, data):
+        del self._jobs_running[data.job_id]
+        res = self._platform.get_resources(data.alloc)
+        for node_id, r in groupby(res, key=lambda r: r.parent_id):
+            self._update_node_state(timestamp, [node_id], cores=-len(list(r)))
+
+    def on_job_killed(self, timestamp, data):
+        res = [
+            a for job_id in data.job_ids for a in self._jobs_running.pop(job_id)
+        ]
+        res = self._platform.get_resources(res)
+        for node_id, r in groupby(res, key=lambda r: r.parent_id):
+            self._update_node_state(timestamp, [node_id], cores=-len(list(r)))
+
+    def on_resource_power_state_changed(self, timestamp, data):
+        res = self._platform.get_resources(data.resources)
+        nodes_id = set([r.parent_id for r in res])
+        self._update_node_state(timestamp, nodes_id, new_pstate_id=data.pstate)
+
+    def _update_node_state(self, timestamp, nodes, cores=None, new_pstate_id=None):
+        nb_switches = 0
+        for node in self._platform.nodes:
+            n_state, n_load, n_tstart = self.last_node_state[node.id]
+            time_spent = timestamp - n_tstart
+
+            if n_state.type == PowerStateType.computation:
+                if n_load > 0:
+                    self.info['time_computing'] += time_spent
+                    self.info['consumed_joules'] += (
+                        n_state.power_max * n_load) * time_spent
+                else:
+                    self.info['time_idle'] += time_spent
+                    self.info['consumed_joules'] += n_state.power_min * time_spent
+                    self.info['energy_waste'] += n_state.power_min * time_spent
+            elif n_state.type == PowerStateType.sleep:
+                self.info['time_sleeping'] += time_spent
+                self.info['consumed_joules'] += n_state.power_min * time_spent
+            elif n_state.type == PowerStateType.switching_off:
+                self.info['time_switching_off'] += time_spent
+                self.info['consumed_joules'] += n_state.power_min * time_spent
+                self.info['energy_waste'] += n_state.power_min * time_spent
+            elif n_state.type == PowerStateType.switching_on:
+                self.info['time_switching_on'] += time_spent
+                self.info['consumed_joules'] += n_state.power_min * time_spent
+                self.info['energy_waste'] += n_state.power_min * time_spent
+            else:
+                raise NotImplementedError
+
+            if node.id in nodes:
+                old_state = n_state
+                n_state = n_state if not new_pstate_id else next(
+                    ps for ps in node.power_states if ps.id == new_pstate_id)
+
+                if n_state.type == PowerStateType.sleep:
+                    n_load = 0
+                elif n_state.type == PowerStateType.switching_off or n_state.type == PowerStateType.switching_on:
+                    n_load = 0
+                    if new_pstate_id is not None:
+                        nb_switches += 1
+                elif n_state.type == PowerStateType.computation:
+                    if old_state.type == PowerStateType.switching_on:
+                        n_load = 0
+                    if cores is not None:
+                        n_load += cores / node.nb_resources
+                else:
+                    raise NotImplementedError
+
+            self.last_node_state[node.id] = (n_state, n_load, timestamp)
+
+        self.info['nb_switches'] += nb_switches
+
+
+class SchedulerStatsMonitor(SimulationMonitor):
+    def __init__(self, simulator, qos_stretch=None):
+        super().__init__(simulator)
+        self.job_monitor = JobsStatsMonitor(simulator, qos_stretch)
+        self.nodes_monitor = NodeStatsMonitor(simulator)
         self.sim_start_time = self.simulation_time = -1
 
     @property
     def info(self):
-        info = dict(self.job_monitor.info, **self.resource_monitor.info)
+        info = dict(self.job_monitor.info, **self.nodes_monitor.info)
         info['simulation_time'] = self.simulation_time
         return info
 
