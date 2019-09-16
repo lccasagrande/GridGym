@@ -17,13 +17,22 @@ class OffReservationEnv(GridEnv):
     MAX_QUEUE_SZ = 10
     ACT_INTERVAL = 1  # minutes
     SIMULATION_TIME = 1440  # 60 * 60 * 24  # minutes
-    TRACE = False
+    TRACE = True
+
+    #REWARD METRIC
+    QOS_STRETCH = 0.5
 
     def __init__(self):
         super().__init__(use_batsim=False)
         self.reservation_size = 0
         self.scheduler = EASYBackfilling()
         self.workload_name = ""
+        if self.TRACE:
+            self.scheduler_monitor = SchedulerStatsMonitor(self.rjms.simulator, self.QOS_STRETCH)
+            self.res_monitor = ResourceStatesEventMonitor(self.rjms.simulator)
+            self.job_monitor = JobMonitor(self.rjms.simulator)
+            self.pstate_monitor = ResourcePowerStatesEventMonitor(self.rjms.simulator)
+            self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
 
     def reset(self):
         self.reservation_size = 0
@@ -119,7 +128,7 @@ class OffReservationEnv(GridEnv):
             jobs_ready = self.scheduler.schedule(queue, r)
             for job_id in jobs_ready:
                 job = next(j for j in queue if j.id == job_id)
-                if (self.rjms.current_time - job.subtime) > (job.walltime / 2.):
+                if (self.rjms.current_time - job.subtime) / job.walltime >= self.QOS_STRETCH:
                     qos += job.res
             qos /= self.rjms.platform.nb_resources
         return -1 * (energy_waste + qos)
@@ -136,13 +145,16 @@ class OffReservationEnv(GridEnv):
             self.MAX_QUEUE_SZ), reserved[nb_reserved:])
 
         obs['queue'] = np.asarray(
-            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, j.profile]
-                for j in self._get_queue()]
+            [
+                [j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, int(j.profile)] for j in self._get_queue()
+            ],
+            dtype=self.observation_space.spaces['queue'].dtype
         )
 
         obs['jobs_running'] = np.asarray(
-            [[j.start_time, j.allocation, j.walltime, j.user, j.profile]
-                for j in self.rjms.jobs_running]
+            [
+                [j.start_time, j.res, j.walltime, j.user, int(j.profile)] for j in self.rjms.jobs_running
+            ]
         )
 
         obs['platform'] = np.zeros(
@@ -209,23 +221,5 @@ class OffReservationEnv(GridEnv):
         return obs_space, act_space
 
     def _get_info(self):
-        # def get_next_submissions():
-        #    upper_bound = self.rjms.current_time + 360
-        #    next_submission = next((idx for idx, j in enumerate(
-        #        self.current_workload.jobs) if j.subtime > self.rjms.current_time), None)
-        #    next_submissions = []
-        #    if next_submission:
-        #        for j in itertools.takewhile(lambda j: j.subtime <= upper_bound, self.current_workload.jobs[next_submission:]):
-        #            next_submissions.append({
-        #                'subtime': j.subtime,
-        #                'res': j.res,
-        #                'walltime': j.walltime,
-        #                'expected_time_to_start': j.expected_time_to_start
-        #            })
-        #    return next_submissions
-        #
-        # if not self.rjms.is_running:
-            # return {k: v for k, v in self.scheduler_monitor.info.items()}
-        # else:
         info = {'workload_name': self.workload_name}
         return info

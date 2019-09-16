@@ -15,7 +15,6 @@ class GridEnv(gym.Env):
     WORKLOADS = 'GridGym/gridgym/envs/simulator/files/workloads/'
     PLATFORM = 'GridGym/gridgym/envs/simulator/files/platform.xml'
     OUTPUT = 'GridGym/gridgym/envs/simulator/files/output/'
-    TRACE = False
 
     def __init__(self, use_batsim=False):
         self.rjms = ResourceManager(use_batsim)
@@ -39,13 +38,6 @@ class GridEnv(gym.Env):
         #self.workloads.sort(key=lambda w: int(w[w.rfind("_")+1:w.rfind(".json")]))
         self.observation_space, self.action_space = self._get_space()
         self.seed()
-        if self.TRACE:
-            self.scheduler_monitor = SchedulerStatsMonitor(self.rjms.simulator)
-            self.res_monitor = ResourceStatesEventMonitor(self.rjms.simulator)
-            self.job_monitor = JobMonitor(self.rjms.simulator)
-            self.pstate_monitor = ResourcePowerStatesEventMonitor(
-                self.rjms.simulator)
-            self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
 
     def close(self):
         self.rjms.close()
