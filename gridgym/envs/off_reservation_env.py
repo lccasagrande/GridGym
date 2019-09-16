@@ -136,12 +136,12 @@ class OffReservationEnv(GridEnv):
             self.MAX_QUEUE_SZ), reserved[nb_reserved:])
 
         obs['queue'] = np.asarray(
-            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user]
+            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, j.profile]
                 for j in self._get_queue()]
         )
 
         obs['jobs_running'] = np.asarray(
-            [[j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user]
+            [[j.start_time, j.allocation, j.walltime, j.user, j.profile]
                 for j in self.rjms.jobs_running]
         )
 
@@ -173,7 +173,7 @@ class OffReservationEnv(GridEnv):
         queue = spaces.Box(
             low=-1,
             high=np.iinfo(int).max,
-            shape=(self.MAX_QUEUE_SZ, 5),
+            shape=(self.MAX_QUEUE_SZ, 6),
             dtype=np.int)
 
         jobs_running = spaces.Box(
