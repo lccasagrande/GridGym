@@ -193,13 +193,7 @@ class Node(Id):
         super().__init__(id)
         self.resources = resources
         self.nb_resources = len(resources)
-        self.power_states = [
-            PowerState(ps.id,
-                       ps.type,
-                       PowerProfile(ps.power_min * self.nb_resources,
-                                    ps.power_max * self.nb_resources),
-                       ps.speed) for ps in resources[0].power_states
-        ]
+        self.power_states = self.resources[0].power_states
 
     def __repr__(self):
         return "Node_%i" % self.id
@@ -210,7 +204,10 @@ class Node(Id):
 
     @property
     def power(self):
-        return sum(r.power for r in self.resources)
+        if self.load == 0:
+            return self.state.power_min
+        else:
+            return self.state.power_max * self.load
 
     @property
     def load(self):
