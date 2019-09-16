@@ -20,10 +20,23 @@ class GridEnv(gym.Env):
     def __init__(self, use_batsim=False):
         self.rjms = ResourceManager(use_batsim)
         self.job_submitter = JobSubmitter(self.rjms.simulator)
-        self.workloads = [os.path.join(self.WORKLOADS, w) for w in os.listdir(
-            self.WORKLOADS) if w.endswith('.json')
-        ]
-        self.workloads.sort(key=lambda w: int(w[w.rfind("_")+1:w.rfind(".json")]))
+
+        self.workloads = []
+        for f in os.scandir(self.WORKLOADS):
+            if f.is_dir():
+                group_workloads = [os.path.join(
+                    f, w) for w in os.listdir(f) if w.endswith('.json')]
+                self.workloads.append(group_workloads)
+
+        if len(self.workloads) == 0:
+            self.workloads = [os.path.join(self.WORKLOADS, w) for w in os.listdir(
+                self.WORKLOADS) if w.endswith('.json')]
+        elif len(self.workloads) == 1:
+            self.workloads = self.workloads[0]
+
+        assert len(self.workloads) > 0
+
+        #self.workloads.sort(key=lambda w: int(w[w.rfind("_")+1:w.rfind(".json")]))
         self.observation_space, self.action_space = self._get_space()
         self.seed()
         if self.TRACE:
@@ -43,8 +56,10 @@ class GridEnv(gym.Env):
         self.rjms.start(platform_fn=self.PLATFORM,
                         output_dir=self.OUTPUT,
                         simulation_time=self.SIMULATION_TIME)
-        #self.np_random.shuffle(self.workloads)
-        w = self.np_random.choice(self.workloads)
+
+        group = self.np_random.choice(self.workloads)
+        # self.np_random.shuffle(self.workloads)
+        w = self.np_random.choice(group) if isinstance(group, list) else group
         self.job_submitter.start(w)
         return self._get_obs()
 
