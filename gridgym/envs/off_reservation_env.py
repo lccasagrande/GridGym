@@ -19,7 +19,7 @@ class OffReservationEnv(GridEnv):
     SIMULATION_TIME = 1440  # 60 * 60 * 24  # minutes
     TRACE = True
 
-    #REWARD METRIC
+    # REWARD METRIC
     QOS_STRETCH = 0.5
 
     def __init__(self):
@@ -28,10 +28,12 @@ class OffReservationEnv(GridEnv):
         self.scheduler = EASYBackfilling()
         self.workload_name = ""
         if self.TRACE:
-            self.scheduler_monitor = SchedulerStatsMonitor(self.rjms.simulator, self.QOS_STRETCH)
+            self.scheduler_monitor = SchedulerStatsMonitor(
+                self.rjms.simulator, self.QOS_STRETCH)
             self.res_monitor = ResourceStatesEventMonitor(self.rjms.simulator)
             self.job_monitor = JobMonitor(self.rjms.simulator)
-            self.pstate_monitor = ResourcePowerStatesEventMonitor(self.rjms.simulator)
+            self.pstate_monitor = ResourcePowerStatesEventMonitor(
+                self.rjms.simulator)
             self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
 
     def reset(self):
@@ -146,14 +148,14 @@ class OffReservationEnv(GridEnv):
 
         obs['queue'] = np.asarray(
             [
-                [j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, int(j.profile)] for j in self._get_queue()
+                [j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, int(j.profile[:j.profile.rfind('.')])] for j in self._get_queue()
             ],
             dtype=self.observation_space.spaces['queue'].dtype
         )
 
         obs['jobs_running'] = np.asarray(
             [
-                [j.start_time, j.res, j.walltime, j.user, int(j.profile)] for j in self.rjms.jobs_running
+                [j.start_time, j.res, j.walltime, j.user, int(j.profile[:j.profile.rfind('.')])] for j in self.rjms.jobs_running
             ]
         )
 

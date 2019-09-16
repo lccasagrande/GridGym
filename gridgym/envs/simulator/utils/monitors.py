@@ -130,7 +130,7 @@ class JobsStatsMonitor(SimulationMonitor):
         self.info['mean_slowdown'] /= nb_finished
         self.info['mean_stretch'] /= nb_finished
         self.info['mean_turnaround_time'] /= nb_finished
-        self.info['mean_qos_delay'] /= self.info['qos_violations']
+        self.info['mean_qos_delay'] /= max(1, self.info['qos_violations'])
 
     def on_job_submitted(self, timestamp, data):
         self.info['nb_jobs'] += 1
