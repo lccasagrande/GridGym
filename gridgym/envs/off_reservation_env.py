@@ -17,7 +17,7 @@ class OffReservationEnv(GridEnv):
     MAX_QUEUE_SZ = 10
     ACT_INTERVAL = 1  # minutes
     SIMULATION_TIME = 1440  # 60 * 60 * 24  # minutes
-    TRACE = True
+    TRACE = False
 
     # REWARD METRIC
     QOS_STRETCH = 0.5
@@ -148,14 +148,14 @@ class OffReservationEnv(GridEnv):
 
         obs['queue'] = np.asarray(
             [
-                [j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, int(j.profile[:j.profile.rfind('.')])] for j in self._get_queue()
+                [j.subtime, j.res, j.walltime, j.expected_time_to_start, j.user, int(j.profile)] for j in self._get_queue()
             ],
             dtype=self.observation_space.spaces['queue'].dtype
         )
 
         obs['jobs_running'] = np.asarray(
             [
-                [j.start_time, j.res, j.walltime, j.user, int(j.profile[:j.profile.rfind('.')])] for j in self.rjms.jobs_running
+                [j.start_time, j.res, j.walltime, j.user, int(j.profile)] for j in self.rjms.jobs_running
             ]
         )
 

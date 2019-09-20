@@ -12,11 +12,17 @@ from gridgym.envs.simulator.utils.submitter import JobSubmitter
 
 class GridEnv(gym.Env):
     SIMULATION_TIME = None  # 7 * 1440
-    WORKLOADS = 'GridGym/gridgym/envs/simulator/files/workloads/'
-    PLATFORM = 'GridGym/gridgym/envs/simulator/files/platform.xml'
-    OUTPUT = 'GridGym/gridgym/envs/simulator/files/output/'
+    #WORKLOADS = 'GridGym/gridgym/envs/simulator/files/workloads/'
+    #PLATFORM = 'GridGym/gridgym/envs/simulator/files/platform.xml'
+    #OUTPUT = 'GridGym/gridgym/envs/simulator/files/output/'
+    WORKLOADS = "/tmp/GridGym/workloads/"
+    PLATFORM = "/tmp/GridGym/platform.xml"
+    OUTPUT = "/tmp/GridGym/output/"
 
     def __init__(self, use_batsim=False):
+        os.makedirs(self.WORKLOADS, exist_ok=True)
+        os.makedirs(self.OUTPUT, exist_ok=True)
+
         self.rjms = ResourceManager(use_batsim)
         self.job_submitter = JobSubmitter(self.rjms.simulator)
 
