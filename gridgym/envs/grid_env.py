@@ -39,7 +39,6 @@ class GridEnv(gym.Env):
         elif len(self.workloads) == 1:
             self.workloads = self.workloads[0]
 
-        assert len(self.workloads) > 0
 
         #self.workloads.sort(key=lambda w: int(w[w.rfind("_")+1:w.rfind(".json")]))
         self.observation_space, self.action_space = self._get_space()
@@ -50,6 +49,7 @@ class GridEnv(gym.Env):
         self.job_submitter.close()
 
     def reset(self):
+        assert len(self.workloads) > 0
         self.rjms.close()
         self.rjms.start(platform_fn=self.PLATFORM,
                         output_dir=self.OUTPUT,
