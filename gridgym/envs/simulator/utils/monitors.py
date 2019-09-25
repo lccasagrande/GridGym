@@ -124,6 +124,10 @@ class JobsStatsMonitor(SimulationMonitor):
         self.info = {k: 0 for k in self.info.keys()}
 
     def on_simulation_ends(self, timestamp, data):
+        for j in self._jobs.values():  # WORKAROUND TO GET NOT SCHEDULED JOBS
+            if j.state == JobState.SUBMITTED:
+                self._start_job(timestamp, list(range(j.res)), j)
+
         self.info['makespan'] = timestamp
         nb_finished = max(1, self.info['nb_jobs_finished'])
         self.info['mean_waiting_time'] /= nb_finished
@@ -138,7 +142,10 @@ class JobsStatsMonitor(SimulationMonitor):
 
     def on_job_started(self, timestamp, data):
         job = self._jobs[data.job_id]
-        job.set_allocation(data.alloc)
+        self._start_job(timestamp, data.alloc, job)
+
+    def _start_job(self, timestamp, alloc, job):
+        job.set_allocation(alloc)
         job.start(timestamp)
         if job.waiting_time / job.walltime >= self.qos_stretch:
             self.info['qos_violations'] += 1
@@ -146,7 +153,7 @@ class JobsStatsMonitor(SimulationMonitor):
                 (job.walltime * self.qos_stretch)
 
     def on_job_completed(self, timestamp, data):
-        job = self._jobs[data.job_id]
+        job = self._jobs.pop(data.job_id)
         job.terminate(timestamp, data.job_state)
         self.info['makespan'] = timestamp
 
