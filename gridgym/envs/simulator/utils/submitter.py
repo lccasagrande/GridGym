@@ -49,8 +49,7 @@ class JobSubmitter(SimulationEventHandler):
         assert self.workloads
 
         w = self.workloads.pop(0)
-        w_name = "{}:{}".format(
-            w[w.rfind('/')+1:w.rfind('.json')], len(self.workloads))
+        w_name = "{}".format(w[w.rfind('/')+1:w.rfind('.json')])
         workload = Workload(w_name, w)
 
         for profile_name, profile in workload.profiles.items():

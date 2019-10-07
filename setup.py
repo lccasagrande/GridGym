@@ -13,7 +13,7 @@ os.makedirs("/tmp/GridGym/output/", exist_ok=True)
 setup(name='GridGym',
       author='lccasagrande',
       version='0.0.1',
-      python_requires='>=3.6',
+      python_requires='>=3.7',
       install_requires=[
               'gym',
               'numpy',

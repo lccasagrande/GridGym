@@ -36,11 +36,24 @@ class OffReservationEnv(GridEnv):
                 self.rjms.simulator)
             self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
 
+        self.job_trace_fn = self.schedule_trace_fn = self.machine_states_trace_fn = self.pstate_changes_trace_fn = self.consumed_energy_trace_fn = None
+
     def reset(self):
         self.reservation_size = 0
-        o = super().reset()
+        obs = super().reset()
         self.workload_name = self.job_submitter.current_workload.name
-        return o
+        if self.TRACE:
+            self.job_trace_fn = self.OUTPUT + self.workload_name + "_jobs.csv"
+            self.schedule_trace_fn = self.OUTPUT + self.workload_name + "_schedule.csv"
+            self.machine_states_trace_fn = self.OUTPUT + \
+                self.workload_name + "_machine_states.csv"
+            self.pstate_changes_trace_fn = self.OUTPUT + \
+                self.workload_name + "_pstate_changes.csv"
+            self.consumed_energy_trace_fn = self.OUTPUT + \
+                self.workload_name + "_consumed_energy.csv"
+        else:
+            self.job_trace_fn = self.schedule_trace_fn = self.machine_states_trace_fn = self.pstate_changes_trace_fn = self.consumed_energy_trace_fn = None
+        return obs
 
     def _get_queue(self, maxlen=0):
         assert maxlen >= 0
@@ -53,7 +66,6 @@ class OffReservationEnv(GridEnv):
                     break
                 s_queue.append(j)
         return s_queue
-        # return self.rjms.jobs_queue  # np.asarray(queue)
 
     def step(self, action):
         assert self.rjms.is_running, "Simulation is not running."
@@ -81,11 +93,11 @@ class OffReservationEnv(GridEnv):
         obs = self._get_obs(reward)
         done = not self.rjms.is_running
         if done and self.TRACE:
-            self.job_monitor.to_csv(self.OUTPUT + "_jobs.csv")
-            self.scheduler_monitor.to_csv(self.OUTPUT + "_schedule.csv")
-            self.res_monitor.to_csv(self.OUTPUT + "_machine_states.csv")
-            self.pstate_monitor.to_csv(self.OUTPUT + "_pstate_changes.csv")
-            self.energy_monitor.to_csv(self.OUTPUT + "_consumed_energy.csv")
+            self.job_monitor.to_csv(self.job_trace_fn)
+            self.scheduler_monitor.to_csv(self.schedule_trace_fn)
+            self.res_monitor.to_csv(self.machine_states_trace_fn)
+            self.pstate_monitor.to_csv(self.pstate_changes_trace_fn)
+            self.energy_monitor.to_csv(self.consumed_energy_trace_fn)
 
         info = self._get_info()
         return obs, reward, done, info
@@ -224,4 +236,13 @@ class OffReservationEnv(GridEnv):
 
     def _get_info(self):
         info = {'workload_name': self.workload_name}
+        if self.TRACE:
+            info['traces'] = {
+                'job': self.job_trace_fn,
+                'schedule': self.schedule_trace_fn,
+                'machine_states': self.machine_states_trace_fn,
+                'pstate_changes': self.pstate_changes_trace_fn,
+                'consumed_energy': self.consumed_energy_trace_fn,
+            }
+
         return info
