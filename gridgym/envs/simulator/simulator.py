@@ -1,3 +1,6 @@
+import signal
+import atexit
+
 from xml.dom import minidom
 from itertools import takewhile
 
@@ -5,6 +8,7 @@ from gridgym.envs.simulator.resource import Platform, PowerStateType, ResourceSt
 from gridgym.envs.simulator.job import Job, JobState
 from gridgym.envs.simulator.network import *
 from gridgym.envs.simulator.utils.submitter import Workload, JobSubmitter
+from gridgym.envs.simulator.utils.commons import *
 import subprocess
 
 
@@ -245,6 +249,8 @@ class BatsimSimulationHandler(SimulationProtocol):
         self.__callbacks = {k: [] for k in EventType}
         self.__simulator = None
         self.__platform = None
+        atexit.register(self._close_simulator)
+        signal.signal(signal.SIGTERM, signal_wrapper(self._close_simulator))
         self.set_callback(EventType.SIMULATION_ENDS, self.on_simulation_ends)
 
     @property
@@ -289,19 +295,20 @@ class BatsimSimulationHandler(SimulationProtocol):
         self._dispatch_events([event])
         self.__network.flush(blocking=True)
 
-    def finish(self):
+    def _close_simulator(self):
         if self.__simulator is not None:
             self.__simulator.terminate()
             self.__simulator = None
 
+    def finish(self):
+        self._close_simulator()
         self._dispatch_events([SimulationEndsEvent(self.current_time)])
 
     def on_simulation_ends(self, timestamp, data):
         if self.__simulator:
             self.ack()
             self.__simulator.wait()
-            self.__simulator.terminate()
-            self.__simulator = None
+            self._close_simulator()
         self.__requests.clear()
         self.__network.close()
 
