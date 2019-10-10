@@ -5,43 +5,55 @@ import importlib.resources as impr
 import atexit
 import signal
 import sys
-
 from contextlib import ExitStack
 
 import gym
 from gym import error
 from gym.utils import seeding
 
-import gridgym.envs.simulator as sim_dir
-from gridgym.envs.simulator.manager import ResourceManager
-from gridgym.envs.simulator.utils.monitors import *
-from gridgym.envs.simulator.utils.commons import *
-from gridgym.envs.simulator.utils.submitter import JobSubmitter
+try:
+    import batsim_py
+except ImportError as e:
+    raise error.DependencyNotInstalled(
+        "{}. (HINT: you need to install batsim_py, see: https://github.com/lccasagrande/batsim-py/.)".format(e))
+
+from batsim_py.rjms import RJMSHandler
+from batsim_py.utils.monitors import *
+from batsim_py.utils.commons import *
+from batsim_py.utils.submitter import JobSubmitter
 
 
 class GridEnv(gym.Env):
     OUTPUT = "/tmp/GridGym/"
 
-    def __init__(self, use_batsim=False, simulation_time=None):
-        self.simulation_time = simulation_time
-        self.workloads = self.platform_fn = self.file_manager = None
-        self.rjms = ResourceManager(use_batsim)
-        self.job_submitter = JobSubmitter(self.rjms.simulator)
-        atexit.register(self.close)
-        signal.signal(signal.SIGTERM, signal_wrapper(self.close))
-        self._load()
-        self.observation_space, self.action_space = self._get_space()
+    def __init__(self, use_batsim=False, simulation_time=None, files_dir=None, export=False):
         self.seed()
+        self.export = export
+        self.simulation_time = simulation_time
+        self.workloads = self.platform_fn = None
+        self.workload_name = ""
+        self.rjms = RJMSHandler(use_batsim)
+        self._load(files_dir)
+        self.observation_space, self.action_space = self._get_space()
         self.metadata = {'render.modes': []}
+        os.makedirs(self.OUTPUT, exist_ok=True)
 
+    def _load(self, files_dir):
+        if files_dir is None:
+            files_dir = os.path.join(os.path.dirname(__file__), 'files')
 
-    def _load(self):
-        self.file_manager = ExitStack()
-        path = self.file_manager.enter_context(impr.path(sim_dir, 'files'))
-        platform_fn = "{}/platform.xml".format(path)
-        workloads_path = "{}/workloads/".format(path)
+        if not os.path.exists(files_dir):
+            raise IOError("Files in {} does not exist".format(files_dir))
+
+        platform_fn = "{}/platform.xml".format(files_dir)
+        if not os.path.exists(platform_fn):
+            raise IOError("File {} does not exist".format(platform_fn))
+
+        workloads_path = "{}/workloads/".format(files_dir)
+        if not os.path.exists(workloads_path):
+            raise IOError("Workloads {} does not exist".format(workloads_path))
+
         workloads = []
-
         for f in os.scandir(workloads_path):
             if f.is_dir():
                 group_workloads = [
@@ -56,30 +68,33 @@ class GridEnv(gym.Env):
         elif len(workloads) == 1:
             workloads = workloads[0]
 
+        if not workloads:
+            raise IOError("Workloads not found in {}".format(workloads_path))
+
         self.workloads = workloads
         self.platform_fn = platform_fn
 
     def _start_simulation(self):
-        overwrite_dir(self.OUTPUT)
-        self.rjms.close()
+        # self.np_random.shuffle(self.workloads)
+        group = self.np_random.choice(self.workloads)
+        workload = self.np_random.choice(group) if isinstance(group, list) else group
+        self.workload_name = "{}".format(
+            workload[workload.rfind('/')+1:workload.rfind('.json')])
+        export_fn = self.OUTPUT + self.workload_name if self.export else None
+
         self.rjms.start(platform_fn=self.platform_fn,
-                        output_dir=self.OUTPUT,
-                        simulation_time=self.simulation_time)
+                        workload_fn=workload,
+                        simulation_time=self.simulation_time,
+                        output_fn=export_fn)
 
     def close(self, s=None, a=None):
         self.rjms.close()
-        self.job_submitter.close()
-        if self.file_manager is not None:
-            self.file_manager.close()
-        self.workloads = self.platform_fn = self.file_manager = None
+        self.workloads = self.platform_fn = None
 
     def reset(self):
         assert len(self.workloads) > 0
+        self.rjms.close()
         self._start_simulation()
-        group = self.np_random.choice(self.workloads)
-        # self.np_random.shuffle(self.workloads)
-        w = self.np_random.choice(group) if isinstance(group, list) else group
-        self.job_submitter.start(w)
         return self._get_obs()
 
     def seed(self, seed=None):

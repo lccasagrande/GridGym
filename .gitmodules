@@ -1,3 +1,4 @@
-[submodule "gridgym/envs/batsim_py"]
-	path = gridgym/envs/batsim_py
+[submodule "batsim_py"]
+	path = gridgym/envs/batsim-py
 	url = git@github.com:lccasagrande/batsim-py.git
+	branch = master

@@ -7,61 +7,40 @@ import numpy as np
 import gym
 from gym import spaces
 
+
 from gridgym.envs.grid_env import GridEnv
-from gridgym.envs.simulator.utils.schedulers import EASYBackfilling, SAFBackfilling
-from gridgym.envs.simulator.resource import ResourceState, PowerStateType
-from gridgym.envs.simulator.utils.monitors import *
+from batsim_py.utils.schedulers import EASYBackfilling, SAFBackfilling
+from batsim_py.resource import ResourceState, PowerStateType
+from batsim_py.utils.monitors import *
 
 
 class OffReservationEnv(GridEnv):
     def __init__(self,
                  use_batsim=False,
-                 trace=False,
+                 simulation_time=1440,
+                 files_dir=None,
+                 export=False,
                  max_queue_sz=10,
                  act_interval=1,
-                 simulation_time=1440,
                  qos_stretch=0.5):
-
-        super().__init__(
-            use_batsim=use_batsim,
-            simulation_time=simulation_time)
 
         self.act_interval = act_interval
         self.max_queue_sz = max_queue_sz
-        self.trace = trace
         self.qos_stretch = qos_stretch
         self.reservation_size = 0
+
+        super().__init__(
+            use_batsim=use_batsim,
+            simulation_time=simulation_time,
+            files_dir=files_dir,
+            export=export)
+
         self.scheduler = EASYBackfilling()
-        self.workload_name = ""
-
         self.metadata['render.modes'] = []
-
-        if self.trace:
-            self.scheduler_monitor = SchedulerStatsMonitor(
-                self.rjms.simulator, self.qos_stretch)
-            self.res_monitor = ResourceStatesEventMonitor(self.rjms.simulator)
-            self.job_monitor = JobMonitor(self.rjms.simulator)
-            self.pstate_monitor = ResourcePowerStatesEventMonitor(
-                self.rjms.simulator)
-            self.energy_monitor = EnergyEventMonitor(self.rjms.simulator)
-
-        self.job_trace_fn = self.schedule_trace_fn = self.machine_states_trace_fn = self.pstate_changes_trace_fn = self.consumed_energy_trace_fn = None
 
     def reset(self):
         self.reservation_size = 0
         obs = super().reset()
-        self.workload_name = self.job_submitter.current_workload.name
-        if self.trace:
-            self.job_trace_fn = self.OUTPUT + self.workload_name + "_jobs.csv"
-            self.schedule_trace_fn = self.OUTPUT + self.workload_name + "_schedule.csv"
-            self.machine_states_trace_fn = self.OUTPUT + \
-                self.workload_name + "_machine_states.csv"
-            self.pstate_changes_trace_fn = self.OUTPUT + \
-                self.workload_name + "_pstate_changes.csv"
-            self.consumed_energy_trace_fn = self.OUTPUT + \
-                self.workload_name + "_consumed_energy.csv"
-        else:
-            self.job_trace_fn = self.schedule_trace_fn = self.machine_states_trace_fn = self.pstate_changes_trace_fn = self.consumed_energy_trace_fn = None
         return obs
 
     def step(self, action):
@@ -69,7 +48,7 @@ class OffReservationEnv(GridEnv):
 
         self._set_off_reservation_size(action)
 
-        reserved = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
+        reserved = self.rjms.get_reserved_time()
         reserved.sort()
         jobs_to_start = self.scheduler.schedule(
             self._get_queue(self.max_queue_sz),
@@ -89,13 +68,6 @@ class OffReservationEnv(GridEnv):
 
         obs = self._get_obs(reward)
         done = not self.rjms.is_running
-        if done and self.trace:
-            self.job_monitor.to_csv(self.job_trace_fn)
-            self.scheduler_monitor.to_csv(self.schedule_trace_fn)
-            self.res_monitor.to_csv(self.machine_states_trace_fn)
-            self.pstate_monitor.to_csv(self.pstate_changes_trace_fn)
-            self.energy_monitor.to_csv(self.consumed_energy_trace_fn)
-
         info = self._get_info()
         return obs, reward, done, info
 
@@ -117,7 +89,7 @@ class OffReservationEnv(GridEnv):
             return
 
         # delimit the reservation size
-        nodes_available = self.rjms.agenda.get_available_nodes()
+        nodes_available = self.rjms.get_available_nodes()
         self.reservation_size = min(size, len(nodes_available))
 
         # Just update the scheduler to see if we delay the priority job
@@ -147,7 +119,7 @@ class OffReservationEnv(GridEnv):
         queue = self._get_queue(self.max_queue_sz)
         qos = 0
         if self.reservation_size != 0 and len(queue) > 0:
-            r = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
+            r = self.rjms.get_reserved_time()
             jobs_ready = self.scheduler.schedule(queue, r)
             for job_id in jobs_ready:
                 job = next(j for j in queue if j.id == job_id)
@@ -160,7 +132,7 @@ class OffReservationEnv(GridEnv):
         obs = {}
 
         # Update scheduler
-        reserved = self.rjms.agenda.get_reserved_time(self.rjms.current_time)
+        reserved = self.rjms.get_reserved_time()
         reserved.sort()
         nb_reserved = self.reservation_size * \
             self.rjms.platform.nodes[0].nb_resources
@@ -191,7 +163,7 @@ class OffReservationEnv(GridEnv):
             shape=self.observation_space.spaces['agenda'].shape,
             dtype=self.observation_space.spaces['agenda'].dtype)
 
-        for i, p in enumerate(self.rjms.agenda.get_progress(self.rjms.current_time)):
+        for i, p in enumerate(self.rjms.get_progress()):
             obs['agenda'][i] = p
 
         obs['reservation_size'] = self.reservation_size
@@ -242,13 +214,4 @@ class OffReservationEnv(GridEnv):
 
     def _get_info(self):
         info = {'workload_name': self.workload_name}
-        if self.trace:
-            info['traces'] = {
-                'job': self.job_trace_fn,
-                'schedule': self.schedule_trace_fn,
-                'machine_states': self.machine_states_trace_fn,
-                'pstate_changes': self.pstate_changes_trace_fn,
-                'consumed_energy': self.consumed_energy_trace_fn,
-            }
-
         return info

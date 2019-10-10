@@ -6,8 +6,8 @@ import gym
 from gym import spaces
 
 from .grid_env import GridEnv
-from .simulator.utils.schedulers import EASYBackfilling
-from .simulator.resource import ResourceState, PowerStateType
+from batsim_py.utils.schedulers import EASYBackfilling
+from batsim_py.resource import ResourceState, PowerStateType
 
 
 class SchedulingEnv(GridEnv):

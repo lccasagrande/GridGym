@@ -1,0 +1,333 @@
+<?xml version="1.0"?> 
+<!DOCTYPE platform
+  SYSTEM 'http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd'>
+<platform version="4.1">
+  <zone id="AS0" routing="Full">
+    <prop id="cores_per_node" value="16"/>
+    <host id="master_host" pstate="1" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="0" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="1" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="2" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="3" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="4" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="5" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="6" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="7" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="8" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="9" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="10" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="11" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="12" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="13" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="14" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="15" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="16" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="17" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="18" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="19" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="20" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="21" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="22" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="23" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="24" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="25" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="26" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="27" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="28" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="29" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="30" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="31" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="32" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="33" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="34" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="35" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="36" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="37" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="38" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="39" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="40" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="41" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="42" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="43" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="44" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="45" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="46" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="47" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="48" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="49" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="50" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="51" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="52" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="53" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="54" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="55" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="56" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="57" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="58" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="59" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="60" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="61" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="62" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+    <host id="63" pstate="0" speed="0.001f, 1000000.0f, 1.0f, 0.3333333333333333f">
+      <prop id="watt_per_state" value="9:9,95.0:190.0,125.0:125.0,101.0:101.0"/>
+      <prop id="watt_off" value="9"/>
+      <prop id="sleep_pstates" value="0:3:2"/>
+    </host>
+  </zone>
+</platform>
