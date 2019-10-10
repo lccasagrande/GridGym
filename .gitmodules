@@ -1,0 +1,3 @@
+[submodule "gridgym/envs/batsim_py"]
+	path = gridgym/envs/batsim_py
+	url = git@github.com:lccasagrande/batsim-py.git
