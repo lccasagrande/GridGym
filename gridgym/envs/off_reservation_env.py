@@ -26,14 +26,14 @@ class OffReservationEnv(GridEnv):
 
         self.act_interval = act_interval
         self.max_queue_sz = max_queue_sz
-        self.qos_stretch = qos_stretch
         self.reservation_size = 0
 
         super().__init__(
             use_batsim=use_batsim,
             simulation_time=simulation_time,
             files_dir=files_dir,
-            export=export)
+            export=export,
+            qos_stretch=qos_stretch)
 
         self.scheduler = EASYBackfilling()
         self.metadata['render.modes'] = []

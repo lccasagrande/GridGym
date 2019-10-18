@@ -26,11 +26,12 @@ from batsim_py.utils.submitter import JobSubmitter
 class GridEnv(gym.Env):
     OUTPUT = "/tmp/GridGym/"
 
-    def __init__(self, use_batsim=False, simulation_time=None, files_dir=None, export=False):
+    def __init__(self, use_batsim=False, simulation_time=None, files_dir=None, export=False, qos_stretch=None):
         self.seed()
         self.export = export
         self.simulation_time = simulation_time
         self.workloads = self.platform_fn = None
+        self.qos_stretch = qos_stretch
         self.workload_name = ""
         self.rjms = RJMSHandler(use_batsim)
         self._load(files_dir)
@@ -85,7 +86,8 @@ class GridEnv(gym.Env):
         self.rjms.start(platform_fn=self.platform_fn,
                         workload_fn=workload,
                         simulation_time=self.simulation_time,
-                        output_fn=export_fn)
+                        output_fn=export_fn,
+                        qos_stretch=self.qos_stretch)
 
     def close(self, s=None, a=None):
         self.rjms.close()
