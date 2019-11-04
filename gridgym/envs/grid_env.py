@@ -26,11 +26,15 @@ class GridEnv(gym.Env):
         self.workloads = self.platform_fn = None
         self.qos_stretch = qos_stretch
         self.workload_name = ""
-        self.rjms = RJMSHandler(use_batsim)
+        self.rjms = self._get_rjms(use_batsim)
         self._load(files_dir)
         self.observation_space, self.action_space = self._get_space()
         self.metadata = {'render.modes': []}
         os.makedirs(self.OUTPUT, exist_ok=True)
+
+    def _get_rjms(self, use_batsim):
+        return RJMSHandler(use_batsim)
+
 
     def _load(self, files_dir):
         if files_dir is None:
