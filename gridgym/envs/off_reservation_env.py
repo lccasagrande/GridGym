@@ -40,8 +40,7 @@ class OffReservationEnv(GridEnv):
 
     def reset(self):
         self.reservation_size = 0
-        obs = super().reset()
-        return obs
+        return super().reset()
 
     def step(self, action):
         assert self.rjms.is_running, "Simulation is not running."
@@ -50,12 +49,20 @@ class OffReservationEnv(GridEnv):
 
         reserved = self.rjms.get_reserved_time()
         reserved.sort()
-        jobs_to_start = self.scheduler.schedule(
-            self._get_queue(self.max_queue_sz),
-            reserved[self.reservation_size * self.rjms.platform.nodes[0].nb_resources:])
 
-        for job_id in jobs_to_start:
-            self.rjms.allocate(job_id)
+        agenda = self.rjms.get_reserved_time()
+        agenda.sort()
+        nb_reserved = self.reservation_size * \
+            self.rjms.platform.nodes[0].nb_resources
+        agenda = agenda[nb_reserved:]
+        nb_resources = self.rjms.get_available_resources()
+        res = [self.rjms.platform.get_resource(r) for r in agenda if r == 0]
+
+        jobs_to_start = self.scheduler.schedule(
+            self._get_queue(self.max_queue_sz), res, agenda)
+
+        for job in jobs_to_start:
+            self.rjms.allocate(job.id)
 
         self.rjms.start_ready_jobs()
 
@@ -119,10 +126,10 @@ class OffReservationEnv(GridEnv):
         queue = self._get_queue(self.max_queue_sz)
         qos = 0
         if self.reservation_size != 0 and len(queue) > 0:
-            r = self.rjms.get_reserved_time()
-            jobs_ready = self.scheduler.schedule(queue, r)
-            for job_id in jobs_ready:
-                job = next(j for j in queue if j.id == job_id)
+            agenda = self.rjms.get_reserved_time()
+            res = [self.rjms.platform.get_resource(r) for r in agenda if r == 0]
+            jobs_ready = self.scheduler.schedule(queue, res, agenda)
+            for job in jobs_ready:
                 if (self.rjms.current_time - job.subtime) / job.walltime >= self.qos_stretch:
                     qos += job.res
             qos /= self.rjms.platform.nb_resources
@@ -132,12 +139,14 @@ class OffReservationEnv(GridEnv):
         obs = {}
 
         # Update scheduler
-        reserved = self.rjms.get_reserved_time()
-        reserved.sort()
+        agenda = self.rjms.get_reserved_time()
+        agenda.sort()
         nb_reserved = self.reservation_size * \
             self.rjms.platform.nodes[0].nb_resources
-        self.scheduler.schedule(self._get_queue(
-            self.max_queue_sz), reserved[nb_reserved:])
+        agenda = agenda[nb_reserved:]
+        nb_resources = self.rjms.get_available_resources()
+        res = [self.rjms.platform.get_resource(r) for r in agenda if r == 0]
+        self.scheduler.schedule(self._get_queue(self.max_queue_sz), res, agenda)
 
         obs['queue'] = np.asarray(
             [
