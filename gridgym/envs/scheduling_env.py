@@ -91,8 +91,10 @@ class SchedulingEnv(GridEnv):
         return RJMSWrapper(tax=self.tax, timeout=self.timeout, use_batsim=use_batsim)
 
     def reset(self):
-        obs = super().reset()
-        return obs
+        super().reset()
+        while self.rjms.is_running and self.rjms.queue_lenght == 0:
+            self.rjms.proceed_time()
+        return self._get_obs()
 
     def _proceed_time(self):
         self.rjms.proceed_time(self.rjms.current_time + self.act_interval)
