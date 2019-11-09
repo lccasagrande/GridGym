@@ -15,10 +15,10 @@ from batsim_py.resource import ResourceState, PowerStateType
 
 
 class RJMSWrapper(RJMSHandler):
-    def __init__(self, tax, timeout, max_waiting_time=60, use_batsim=False):
+    def __init__(self, tax, timeout, max_debt, use_batsim=False):
         super().__init__(use_batsim=use_batsim)
         self.tax = tax
-        self.max_debt = max_waiting_time * tax
+        self.max_debt = max_debt
         self.account = defaultdict(float)
         self._timeout = Timeout(timeout, self)
 
@@ -35,7 +35,7 @@ class RJMSWrapper(RJMSHandler):
         for user in self.account.keys():
             self.pay_off(user, payment)
 
-    def get_score(self, user):
+    def get_debt(self, user):
         return self.account.get(user, 0)
 
     def loan(self, user, value):
@@ -53,7 +53,8 @@ class RJMSWrapper(RJMSHandler):
 
         if job.runtime <= self._timeout.idling_time:
             t = self._timeout.idling_time - job.runtime
-            nodes_id = set(r.parent_id for r in self.platform.get_resources(job.allocation))
+            nodes_id = set(
+                r.parent_id for r in self.platform.get_resources(job.allocation))
             power = sum(n.power for n in self.platform.get_nodes(nodes_id))
             self.loan(job.user, t*power)
 
@@ -76,10 +77,12 @@ class SchedulingEnv(GridEnv):
                  max_queue_sz=20,
                  tax=86,
                  timeout=15,
+                 max_debt=5160,
                  act_interval=1):
 
         self.tax = tax
         self.act_interval = act_interval
+        self.max_debt = max_debt
         self.max_queue_sz = max_queue_sz
         self.timeout = timeout
         super().__init__(
@@ -88,7 +91,7 @@ class SchedulingEnv(GridEnv):
             export=export)
 
     def _get_rjms(self, use_batsim):
-        return RJMSWrapper(tax=self.tax, timeout=self.timeout, use_batsim=use_batsim)
+        return RJMSWrapper(tax=self.tax, timeout=self.timeout, max_debt=self.max_debt, use_batsim=use_batsim)
 
     def reset(self):
         super().reset()
@@ -121,7 +124,7 @@ class SchedulingEnv(GridEnv):
     def _get_reward(self):
         # Waiting time
         wait_score = sum(
-            j.res for j in self.rjms.jobs_queue[:self.max_queue_sz] if self.rjms.get_score(j.user) == 0)
+            j.res for j in self.rjms.jobs_queue[:self.max_queue_sz] if self.rjms.get_debt(j.user) == 0)
         wait_score = min(1., wait_score / self.rjms.platform.nb_resources)
 
         # Energy waste
@@ -154,7 +157,7 @@ class SchedulingEnv(GridEnv):
                 'expected_time_to_start': j.expected_time_to_start,
                 'user': j.user,
                 'profile': int(j.profile),
-                'score': self.rjms.get_score(j.user)
+                'debt': self.rjms.get_debt(j.user)
             }
             obs['queue']['jobs'][i] = job_state
 
