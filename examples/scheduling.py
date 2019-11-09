@@ -4,17 +4,26 @@ import gym
 import gridgym.envs.off_reservation_env as e
 from batsim_py.utils.graphics import plot_simulation_graphics
 
+
 def run(args):
     print("[RUNNING]")
 
-    env = gym.make(args.env_id, export=True, max_queue_sz=args.queue_sz)
+    env = gym.make(
+        args.env_id,
+        use_batsim=False,
+        tax=86,
+        timeout=5,
+        act_interval=1,
+        export=True,
+        max_queue_sz=args.queue_sz)
 
     obs, done, score = env.reset(), False, 0
     while not done:
         obs, reward, done, info = env.step(1)
         score += reward
 
-    print("[DONE] Score: {} - Output: /tmp/GridGym/{}".format(score, info['workload_name']))
+    print("[DONE] Score: {} - Output: /tmp/GridGym/{}".format(score,
+                                                              info['workload_name']))
 
     if args.plot_results:
         plot_simulation_graphics(
