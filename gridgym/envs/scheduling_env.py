@@ -107,16 +107,20 @@ class SchedulingEnv(GridEnv):
     def step(self, action):
         assert self.rjms.is_running, "Simulation is not running."
 
+        reward = 0
         if 0 < action <= self.rjms.queue_lenght:
             try:
                 self.rjms.allocate(self.rjms.jobs_queue[action-1].id)
             except InsufficientResources:
+                self.rjms.start_ready_jobs()
+                reward = self._get_reward()
                 self._proceed_time()
         else:
+            self.rjms.start_ready_jobs()
+            reward = self._get_reward()
             self._proceed_time()
 
         obs = self._get_obs()
-        reward = self._get_reward()
         done = not self.rjms.is_running
         info = self._get_info()
         return obs, reward, done, info
@@ -134,7 +138,7 @@ class SchedulingEnv(GridEnv):
 
         # Reward
         reward = -1 * (energy_score + wait_score)
-        return reward
+        return reward / 2.
 
     def _get_obs(self):
         obs = {}
@@ -189,7 +193,7 @@ class SchedulingEnv(GridEnv):
             shape=self.observation_space.spaces['agenda'].shape,
             dtype=self.observation_space.spaces['agenda'].dtype)
 
-        for i, p in enumerate(self.rjms.get_progress()):
+        for i, p in enumerate(self.rjms.get_reserved_time()):
             obs['agenda'][i] = p
 
         obs['time'] = self.rjms.current_time
