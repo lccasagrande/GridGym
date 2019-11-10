@@ -1,9 +1,29 @@
 import argparse
+import math
 
+import numpy as np
 import gym
 import gridgym.envs.off_reservation_env as e
 from batsim_py.utils.graphics import plot_simulation_graphics
 
+
+
+def act(obs):
+    queue = [j for j in obs['queue']['jobs'] if j is not None]
+    agenda = obs['agenda']
+    nb_available = len(agenda) - np.count_nonzero(agenda)
+
+    if queue:
+        if queue[0]['res'] <= nb_available:
+            return 1
+        else:
+            start_time = sorted(agenda)[:queue[0]['res']]
+            start_time = math.ceil(start_time[-1])
+            idx = sorted(range(1, len(queue)), key=lambda i: queue[i]['walltime'] * queue[i]['res'])
+            for i in idx:
+                if queue[i]['res'] <= nb_available and queue[i]['walltime'] <= start_time:
+                    return i
+    return 0
 
 def run(args):
     print("[RUNNING]")
@@ -19,7 +39,7 @@ def run(args):
 
     obs, done, score = env.reset(), False, 0
     while not done:
-        obs, reward, done, info = env.step(1)
+        obs, reward, done, info = env.step(act(obs))
         score += reward
 
     print("[DONE] Score: {} - Output: /tmp/GridGym/{}".format(score,
