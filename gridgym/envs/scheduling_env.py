@@ -101,7 +101,7 @@ class SchedulingEnv(GridEnv):
 
     def _proceed_time(self):
         self.rjms.proceed_time(self.rjms.current_time + self.act_interval)
-        while self.rjms.is_running and self.rjms.queue_lenght == 0:
+        while self.rjms.is_running and self.rjms.queue_lenght == 0 and all(n.is_off for n in self.rjms.platform.nodes):
             self.rjms.proceed_time()
 
     def step(self, action):
@@ -127,18 +127,13 @@ class SchedulingEnv(GridEnv):
 
     def _get_reward(self):
         # Waiting time
-        wait_score = sum(
-            j.res for j in self.rjms.jobs_queue[:self.max_queue_sz] if self.rjms.get_debt(j.user) == 0)
+        wait_score = sum(j.res for j in self.rjms.jobs_queue[:self.max_queue_sz] if self.rjms.get_debt(j.user) == 0)#  if self.rjms.get_debt(j.user) == 0
         wait_score = min(1., wait_score / self.rjms.platform.nb_resources)
 
-        # Energy waste
-        energy_score = sum(
-            n.nb_resources for n in self.rjms.platform.nodes if n.is_switching_on)
-        energy_score = min(1., energy_score / self.rjms.platform.nb_resources)
+        energy_score = sum(1 for n in self.rjms.platform.nodes for r in n.resources if r.is_idle or r.is_switching_off or r.is_switching_on)
+        energy_score /= self.rjms.platform.nb_resources
 
-        # Reward
-        reward = -1 * (energy_score + wait_score)
-        return reward / 2.
+        return -1 * (wait_score + energy_score)#len(self.rjms.jobs_queue) #(energy_score + wait_score)
 
     def _get_obs(self):
         obs = {}
@@ -181,6 +176,8 @@ class SchedulingEnv(GridEnv):
             }
             obs['platform']['jobs'][i] = job_state
 
+        obs['platform']['nb_reserved'] = self.rjms.platform.nb_resources - \
+            len(self.rjms.get_available_resources())
         obs['platform']['status'] = np.zeros(
             shape=self.observation_space.spaces['platform']['status'].shape,
             dtype=self.observation_space.spaces['platform']['status'].dtype)
@@ -213,6 +210,7 @@ class SchedulingEnv(GridEnv):
         })
 
         platform = spaces.Dict({
+            'nb_reserved': spaces.Discrete(self.rjms.platform.nb_resources + 1),
             'status': spaces.Box(
                 low=0,
                 high=5,

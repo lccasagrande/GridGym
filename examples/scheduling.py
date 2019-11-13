@@ -1,6 +1,7 @@
 import argparse
 import math
 
+import pandas as pd
 import numpy as np
 import gym
 import gridgym.envs.off_reservation_env as e
@@ -9,6 +10,7 @@ from batsim_py.utils.graphics import plot_simulation_graphics
 
 
 def act(obs):
+    #return np.random.randint(0, len(obs['queue']['jobs'])+1)
     queue = [j for j in obs['queue']['jobs'] if j is not None]
     agenda = obs['agenda']
     nb_available = len(agenda) - np.count_nonzero(agenda)
@@ -25,6 +27,12 @@ def act(obs):
                     return i
     return 0
 
+def act_2(obs):
+    if obs['platform']['nb_reserved'] == 0:
+        return 1
+    else:
+        return 0
+
 def run(args):
     print("[RUNNING]")
 
@@ -37,13 +45,17 @@ def run(args):
         export=True,
         max_queue_sz=args.queue_sz)
 
-    obs, done, score = env.reset(), False, 0
+    obs, done, score, steps = env.reset(), False, 0, 0
     while not done:
-        obs, reward, done, info = env.step(act(obs))
+        obs, reward, done, info = env.step(act_2(obs))
         score += reward
+        steps += 1
+    
+    print("[DONE] Score: {} - Steps: {} - Output: /tmp/GridGym/{}".format(score, steps,
+                                                                  info['workload_name']))
 
-    print("[DONE] Score: {} - Output: /tmp/GridGym/{}".format(score,
-                                                              info['workload_name']))
+    #results = pd.read_csv("/tmp/GridGym/{}_schedule.csv".format(info['workload_name']))
+    #print("[RESULTS]: {}".format(results.to_string()))
 
     if args.plot_results:
         plot_simulation_graphics(
@@ -53,7 +65,7 @@ def run(args):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", default="Scheduling-v0", type=str)
-    parser.add_argument("--plot_results", default=True, action="store_true")
+    parser.add_argument("--plot_results", default=1, action="store_true")
 
     # Agent specific args
     parser.add_argument("--queue_sz", default=20, type=int)
