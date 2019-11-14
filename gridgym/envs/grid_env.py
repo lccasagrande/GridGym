@@ -74,7 +74,7 @@ class GridEnv(gym.Env):
 
     def _start_simulation(self):
         # self.np_random.shuffle(self.workloads)
-        group = self.np_random.choice(self.workloads)
+        group = self.workloads[self.np_random.randint(len(self.workloads))]
         workload = self.np_random.choice(group) if isinstance(group, list) else group
         self.workload_name = "{}".format(
             workload[workload.rfind('/')+1:workload.rfind('.json')])
