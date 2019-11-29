@@ -1,6 +1,6 @@
 import math
 import sys
-from collections import defaultdict
+from collections import defaultdict, deque
 
 import numpy as np
 import gym
@@ -11,62 +11,24 @@ from .grid_env import GridEnv
 from batsim_py.utils.shutdown import Timeout
 from batsim_py.rjms import RJMSHandler, InsufficientResources
 from batsim_py.utils.schedulers import EASYBackfilling
+from batsim_py.utils.monitors import NodeStatsMonitor
 from batsim_py.resource import ResourceState, PowerStateType
 
 
 class RJMSWrapper(RJMSHandler):
-    def __init__(self, tax, timeout, max_debt, use_batsim=False):
+    def __init__(self, timeout, use_batsim=False):
         super().__init__(use_batsim=use_batsim)
-        self.tax = tax
-        self.max_debt = max_debt
-        self.account = defaultdict(float)
+        self.users = defaultdict(lambda: deque([1], maxlen=20))
         self._timeout = Timeout(timeout, self)
 
-    def start(self, platform_fn, workload_fn=None, output_fn=None, simulation_time=None, qos_stretch=None):
-        self.account.clear()
-        return super().start(platform_fn, workload_fn=workload_fn, output_fn=output_fn, simulation_time=simulation_time, qos_stretch=qos_stretch)
-
-    def proceed_time(self, until=0):
-        curr_time = self.current_time
-
-        super().proceed_time(until=until)
-
-        payment = self.tax * (self.current_time - curr_time)
-        for user in self.account.keys():
-            self.pay_off(user, payment)
-
-    def get_debt(self, user):
-        return self.account.get(user, 0)
-
-    def loan(self, user, value):
-        assert value >= 0
-        self.account[user] = min(self.max_debt, self.account[user] + value)
-
-    def pay_off(self, user, value):
-        assert value >= 0
-        self.account[user] = max(0, self.account[user] - value)
+    def get_confidence(self, user):
+        return np.mean(self.users[user])
 
     def on_job_completed(self, timestamp, data):
         super().on_job_completed(timestamp, data)
         job = self._jobs['completed'][-1]
+        self.users[job.user].append(job.runtime / job.walltime)
         assert job.id == data.job_id
-
-        if job.runtime <= self._timeout.idling_time:
-            t = self._timeout.idling_time - job.runtime
-            nodes_id = set(
-                r.parent_id for r in self.platform.get_resources(job.allocation))
-            power = sum(n.power for n in self.platform.get_nodes(nodes_id))
-            self.loan(job.user, t*power)
-
-    def allocate(self, job_id, resource_ids=None):
-        super().allocate(job_id, resource_ids=resource_ids)
-        job = next(job for job in self._jobs['ready'] if job.id == job_id)
-        resources = self.platform.get_resources(job.allocation)
-        for node in self.platform.get_nodes(set(r.parent_id for r in resources)):
-            if not node.is_on:
-                switch_on_e = node.estimate_energy_to_wakeup()
-                switch_off_e = node.estimate_energy_to_shutdown()
-                self.loan(job.user, switch_off_e + switch_on_e)
 
 
 class SchedulingEnv(GridEnv):
@@ -75,23 +37,18 @@ class SchedulingEnv(GridEnv):
                  files_dir=None,
                  export=False,
                  max_queue_sz=20,
-                 tax=86,
                  timeout=15,
-                 max_debt=5160,
-                 act_interval=1):
+                 act_interval=1,
+                 max_simulation_time=None):
 
-        self.tax = tax
         self.act_interval = act_interval
-        self.max_debt = max_debt
         self.max_queue_sz = max_queue_sz
         self.timeout = timeout
-        super().__init__(
-            use_batsim=use_batsim,
-            files_dir=files_dir,
-            export=export)
+        self.max_sim_time = max_simulation_time  # simulation_time
+        super().__init__(use_batsim=use_batsim, files_dir=files_dir, export=export)
 
     def _get_rjms(self, use_batsim):
-        return RJMSWrapper(tax=self.tax, timeout=self.timeout, max_debt=self.max_debt, use_batsim=use_batsim)
+        return RJMSWrapper(timeout=self.timeout, use_batsim=use_batsim)
 
     def reset(self):
         super().reset()
@@ -110,7 +67,8 @@ class SchedulingEnv(GridEnv):
         reward = 0
         if 0 < action <= self.rjms.queue_lenght:
             try:
-                self.rjms.allocate(self.rjms.jobs_queue[action-1].id)
+                job = self.rjms.jobs_queue[action-1]
+                self.rjms.allocate(job.id)
             except InsufficientResources:
                 self.rjms.start_ready_jobs()
                 reward = self._get_reward()
@@ -120,20 +78,31 @@ class SchedulingEnv(GridEnv):
             reward = self._get_reward()
             self._proceed_time()
 
+        if self.max_sim_time and self.rjms.current_time >= self.max_sim_time:
+            self.rjms.close()
+
         obs = self._get_obs()
         done = not self.rjms.is_running
         info = self._get_info()
         return obs, reward, done, info
 
-    def _get_reward(self):
-        # Waiting time
-        wait_score = sum(j.res for j in self.rjms.jobs_queue[:self.max_queue_sz] if self.rjms.get_debt(j.user) == 0)#  if self.rjms.get_debt(j.user) == 0
-        wait_score = min(1., wait_score / self.rjms.platform.nb_resources)
+    def _get_reward(self, job=None):
+        # QoS
+        wait_t = sum(1./j.walltime for j in self.rjms.jobs_queue[:self.max_queue_sz])
 
-        energy_score = sum(1 for n in self.rjms.platform.nodes for r in n.resources if r.is_idle or r.is_switching_off or r.is_switching_on)
-        energy_score /= self.rjms.platform.nb_resources
+        # Energy waste
+        energy_score = sum(1 for n in self.rjms.platform.nodes if n.is_idle)
+        energy_score /= self.rjms.platform.nb_nodes
 
-        return -1 * (wait_score + energy_score)#len(self.rjms.jobs_queue) #(energy_score + wait_score)
+        # Utilization
+        u = sum(
+            1 for n in self.rjms.platform.nodes for r in n.resources if r.is_computing)
+        u /= self.rjms.platform.nb_resources
+
+        u_weight = 1 / self.timeout
+        e_weight = -1
+        qos_weight = -1
+        return (e_weight * energy_score) + (u_weight * u) + (qos_weight * wait_t)
 
     def _get_obs(self):
         obs = {}
@@ -156,7 +125,7 @@ class SchedulingEnv(GridEnv):
                 'expected_time_to_start': j.expected_time_to_start,
                 'user': j.user,
                 'profile': int(j.profile),
-                'debt': self.rjms.get_debt(j.user)
+                'confidence': self.rjms.get_confidence(j.user)
             }
             obs['queue']['jobs'][i] = job_state
 
@@ -169,10 +138,12 @@ class SchedulingEnv(GridEnv):
         for i, j in enumerate(self.rjms.jobs_running):
             job_state = {
                 'start_time': j.start_time,
+                'res': j.res,
                 'allocation': str(ProcSet(*j.allocation)),
                 'walltime': j.walltime,
                 'user': j.user,
-                'profile': int(j.profile)
+                'profile': int(j.profile),
+                'confidence': self.rjms.get_confidence(j.user)
             }
             obs['platform']['jobs'][i] = job_state
 
