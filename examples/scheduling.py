@@ -65,7 +65,7 @@ def run(args):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", default="Scheduling-v0", type=str)
-    parser.add_argument("--plot_results", default=1, action="store_true")
+    parser.add_argument("--plot_results", action="store_true")
 
     # Agent specific args
     parser.add_argument("--queue_sz", default=20, type=int)
