@@ -19,6 +19,7 @@ install_requires = read_requirements_file('requirements.txt')
 setup(
     name='GridGym',
     version=__version__,
+    license='MIT',
     author='lccasagrande',
     author_email='lcamelocasagrande@gmail.com',
     url='https://github.com/lccasagrande/gridgym',
@@ -27,5 +28,4 @@ setup(
     install_requires=install_requires,
     packages=find_packages(),
     package_dir={'gridgym': 'gridgym'},
-
 )
