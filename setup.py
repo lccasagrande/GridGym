@@ -12,6 +12,8 @@ def read_requirements_file(filename):
 with open("gridgym/__version__.py") as version_file:
     exec(version_file.read())
 
+with open("README.rst") as readme_file:
+    long_description = readme_file.read()
 
 install_requires = read_requirements_file('requirements.txt')
 tests_requires = read_requirements_file('requirements-dev.txt')
@@ -27,6 +29,8 @@ setup(
     author_email='lcamelocasagrande@gmail.com',
     url='https://github.com/lccasagrande/gridgym',
     description="An OpenAI Gym environment for resource and job management problems.",
+    long_description=long_description,
+    long_description_content_type="text/x-rst",
     python_requires='>=3.8',
     install_requires=install_requires,
     tests_require=tests_requires,
