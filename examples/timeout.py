@@ -1,94 +1,137 @@
 import argparse
+import math
+from typing import Optional
+from typing import Sequence
+from typing import Dict
+from typing import List
 
-import numpy as np
+from batsim_py.resources import HostState
 import gym
-from gym import spaces
+import numpy as np
+
 import gridgym.envs.off_reservation_env as e
-from batsim_py.utils.graphics import plot_simulation_graphics
 
 
 class TimeoutPolicy():
-    def __init__(self, timeout, nb_resources, nb_nodes, queue_sz):
+    def __init__(self, timeout: Optional[int] = None):
         self.timeout = timeout
-        self.nb_resources = nb_resources
-        self.nodes_state = np.full(shape=nb_nodes, fill_value=-1, dtype=np.int)
-        self.current_time = 0
-        self.queue_sz = queue_sz
+        self.idle_servers: Dict[int, float] = {}
 
-    def _get_available_resources(self, obs):
-        nb_available = sum(1 if a == 0 else 0 for a in obs['agenda'])
-        queue = obs['queue'][:self.queue_sz]
-        if len(queue) > 0:
-            (sub, res, wall, pjob_expected_t_start, user, profile) = queue[0]
-            if pjob_expected_t_start == 0 or res <= nb_available:
-                nb_available -= res
-                pjob_expected_t_start = -1
-                queue = queue[1:]
-            for (sub, res, wall, expected_t_start, user, profile) in queue:
-                if pjob_expected_t_start == -1 and res <= nb_available:
-                    nb_available -= res
-                elif res <= nb_available and wall <= pjob_expected_t_start:
-                    nb_available -= res
-        return nb_available
+    def _count_available_servers(self, obs) -> int:
+        agenda = []
+        for t_start, t_wall, _ in obs['platform']['agenda']:
+            if t_wall > 0:
+                agenda.append(t_wall - (obs['current_time'] - t_start))
+            elif t_wall == 0:
+                agenda.append(0)
+            else:
+                agenda.append(np.inf)
 
-    def act(self, obs):
-        if self.timeout == -1:
-            return 0
-        reservation_size, sim_time, platform = 0, obs['time'], obs['platform']
-        nb_available = self._get_available_resources(obs)
+        reserved: List[int] = []
+        p_start_t: Optional[int] = None
+        for (sub, res, wall, user_id) in obs['queue']['jobs']:
+            if res == 0:
+                break
+            h_available = [i for i, r in enumerate(agenda) if r == 0]
+            h_not_reserved = [i for i in h_available if i not in reserved]
 
-        for i, node in enumerate(platform):
-            if nb_available >= len(node):
-                if all(r == 0 for r in node):
-                    self.nodes_state[i] += sim_time - self.current_time
-                else:
-                    self.nodes_state[i] = -1
-                if self.nodes_state[i] >= self.timeout or all(r == 2 or r == 3 for r in node):
+            if res <= len(h_not_reserved):
+                for alloc_i in h_not_reserved[:res]:
+                    agenda[alloc_i] = wall
+            elif p_start_t is None or not reserved:
+                next_releases = sorted(enumerate(agenda), key=lambda a: a[1])
+                last = min(len(next_releases), res) - 1
+                p_start_t = next_releases[last][1]
+
+                candidates = [
+                    r[0] for r in next_releases if r[1] <= p_start_t
+                ]
+                reserved = candidates[-res:]
+                if not h_available:
+                    break
+            elif wall > 0 and wall <= p_start_t and res <= len(h_available):
+                for alloc_i in h_available[:res]:
+                    agenda[alloc_i] = wall
+
+        nb_avail = sum([1 for r in agenda if r == 0])
+        servers_avail = nb_avail / obs['platform']['status'].shape[1]
+        return math.ceil(servers_avail)
+
+    def act(self, obs: dict) -> int:
+        reservation_size = 0
+
+        if self.timeout is None:
+            return reservation_size
+
+        nb_avail = self._count_available_servers(obs)
+        if nb_avail == 0:
+            return reservation_size
+
+        reserved_states = (
+            HostState.SLEEPING.value,
+            HostState.SWITCHING_OFF.value
+        )
+
+        for i, server in enumerate(obs['platform']['status']):
+            if all(h == HostState.IDLE.value for h in server):
+                if i not in self.idle_servers:
+                    self.idle_servers[i] = obs['current_time']
+            else:
+                self.idle_servers.pop(i, None)
+                if any(h in reserved_states for h in server):
                     reservation_size += 1
-                    nb_available -= len(node)
 
-        self.current_time = sim_time
-        return reservation_size
+        for server, t_start_idle in self.idle_servers.items():
+            if obs['current_time'] - t_start_idle >= self.timeout:
+                reservation_size += 1
 
-    def play(self, env):
-        self.nodes_state = np.full(
-            shape=self.nodes_state.shape, fill_value=-1, dtype=np.int)
-        self.current_time = 0
-        obs, done, score = env.reset(), False, 0
+        return min(nb_avail, reservation_size)
+
+    def play(self, env, verbose=True):
+        history = {"score": 0, 'steps': 0, 'info': None}
+        obs, done, info = env.reset(), False, {}
         while not done:
             obs, reward, done, info = env.step(self.act(obs))
-            score += reward
+            history['score'] += reward
+            history['steps'] += 1
+            history['info'] = info
+
+        if verbose:
+            print("[DONE] Score: {} - Steps: {} - Output: /tmp/GridGym/{}".format(
+                history['score'], history['steps'], info['workload']))
         env.close()
-        return score, info
+        return history
 
 
 def run(args):
     print("[RUNNING]")
+    env = gym.make(args.env_id,
+                   platform_fn="files/platforms/platform.xml",
+                   workloads_dir="files/workloads/",
+                   t_action=args.t_action,
+                   queue_max_len=args.queue_sz,
+                   hosts_per_server=args.server_size,
+                   qos_treshold=0.5,
+                   simulation_time=args.sim_t)
 
-    env = gym.make(args.env_id, export=True)
-    nb_resources = env.observation_space.spaces['agenda'].shape[0]
-    nb_nodes = env.observation_space.spaces['platform'].shape[0]
+    agent = TimeoutPolicy(args.t_timeout)
 
-    agent = TimeoutPolicy(args.timeout, nb_resources, nb_nodes, args.queue_sz)
+    agent.play(env, True)
 
-    score, info = agent.play(env)
-
-    print("[DONE] Score: {} - Output: /tmp/GridGym/{}".format(score,
-                                                              info['workload_name']))
-
-    if args.plot_results:
-        plot_simulation_graphics(
-            "/tmp/GridGym/{}".format(info['workload_name']), show=True)
+    print("[DONE]")
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", default="OffReservation-v0", type=str)
-    parser.add_argument("--plot_results", default=True, action="store_true")
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--env_id", default="gridgym:OffReservation-v0", type=str)
     # Agent specific args
-    parser.add_argument("--timeout", default=0, type=int)
     parser.add_argument("--queue_sz", default=10, type=int)
+    parser.add_argument("--t_timeout", default=5, type=int)
+    parser.add_argument("--t_action", default=1, type=int)
+    parser.add_argument("--server_size", default=12, type=int)
+    parser.add_argument("--sim_t", default=1440, type=int)
     return parser.parse_args()
 
 

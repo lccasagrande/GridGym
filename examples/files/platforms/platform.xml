@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE platform SYSTEM 'http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd'>
+<platform version="4.1">
+    <zone id="AS0" routing="Full">
+
+        <!-- This cluster will be used by Batsim and won't be accounted. -->
+        <cluster id="cluster_master" prefix="master_host" suffix="" radical="0-0" bw="125MBps" lat="50us" bb_bw="2.25GBps" bb_lat="500us" speed="100.0Mf">
+            <prop id="role" value="master" />
+        </cluster>
+
+        <!-- This cluster will be used to compute jobs -->
+        <cluster id="cluster_compute" prefix="host" suffix="" radical="0-47" bw="125MBps" lat="50us" bb_bw="2.25GBps" bb_lat="500us" speed="1.0Mf, 0.0f, 1.01f, 0.334f">
+            <prop id="watt_per_state" value="95.0:190.0,9:9,125.0:125.0,101.0:101.0"/>
+            <prop id="watt_off" value="9"/>
+            <prop id="sleep_pstates" value="1:3:2"/>
+        </cluster>
+
+        <link id="backbone" bandwidth="1.25GBps" latency="500us" />
+        <zoneRoute src="cluster_compute" dst="cluster_master" gw_src="hostcluster_compute_router" gw_dst="master_hostcluster_master_router">
+            <link_ctn id="backbone" />
+        </zoneRoute>
+    </zone>
+</platform>

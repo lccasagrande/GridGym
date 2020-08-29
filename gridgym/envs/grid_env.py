@@ -1,113 +1,96 @@
+from abc import abstractmethod
 import os
+from typing import Any
+from typing import Tuple
+from typing import Optional
+from typing import Sequence
 
+import batsim_py
 import gym
 from gym import error
 from gym.utils import seeding
 
-try:
-    import batsim_py
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you need to install batsim_py, see: https://github.com/lccasagrande/batsim-py/.)".format(e))
-
-from batsim_py.rjms import RJMSHandler
-from batsim_py.utils.monitors import *
-from batsim_py.utils.commons import *
-from batsim_py.utils.submitter import JobSubmitter
-
 
 class GridEnv(gym.Env):
-    OUTPUT = "/tmp/GridGym/"
 
-    def __init__(self, use_batsim=False, simulation_time=None, files_dir=None, export=False, qos_stretch=None):
-        self.seed()
-        self.export = export
-        self.simulation_time = simulation_time
-        self.workloads = self.platform_fn = None
-        self.qos_stretch = qos_stretch
-        self.workload_name = ""
-        self.rjms = self._get_rjms(use_batsim)
-        self._load(files_dir)
-        self.observation_space, self.action_space = self._get_space()
-        self.metadata = {'render.modes': []}
-        os.makedirs(self.OUTPUT, exist_ok=True)
+    metadata: dict = {'render.modes': []}
 
-    def _get_rjms(self, use_batsim):
-        return RJMSHandler(use_batsim)
+    def __init__(self,
+                 platform_fn: str,
+                 workloads_dir: str,
+                 seed: Optional[int] = None,
+                 external_events_fn: Optional[str] = None,
+                 simulation_time: Optional[float] = None,
+                 allow_compute_sharing: bool = False,
+                 allow_storage_sharing: bool = True) -> None:
+        if not platform_fn:
+            raise error.Error('Expected `platform_fn` argument to be a non '
+                              f'empty string, got {platform_fn}.')
+        elif not os.path.exists(platform_fn):
+            raise error.Error(f"File {platform_fn} does not exist.")
+        else:
+            self.platform_fn = platform_fn
 
-
-    def _load(self, files_dir):
-        if files_dir is None:
-            files_dir = os.path.join(os.path.dirname(__file__), 'files')
-
-        if not os.path.exists(files_dir):
-            raise IOError("Files in {} does not exist".format(files_dir))
-
-        platform_fn = "{}/platform.xml".format(files_dir)
-        if not os.path.exists(platform_fn):
-            raise IOError("File {} does not exist".format(platform_fn))
-
-        workloads_path = "{}/workloads/".format(files_dir)
-        if not os.path.exists(workloads_path):
-            raise IOError("Workloads {} does not exist".format(workloads_path))
-
-        workloads = []
-        for f in os.scandir(workloads_path):
-            if f.is_dir():
-                group_workloads = [
-                    os.path.join(f, w) for w in os.listdir(f) if w.endswith('.json')
-                ]
-                if len(group_workloads) > 0:
-                    workloads.append(group_workloads)
-        if len(workloads) == 0:
-            workloads = [
-                os.path.join(workloads_path, w) for w in os.listdir(workloads_path) if w.endswith('.json')
+        if not workloads_dir:
+            raise error.Error('Expected `workloads_dir` argument to be a non '
+                              f'empty string, got {workloads_dir}.')
+        elif not os.path.exists(workloads_dir):
+            raise error.Error(f"Directory {workloads_dir} does not exist.")
+        else:
+            workloads = os.listdir(workloads_dir)
+            self.workloads = [
+                os.path.join(workloads_dir, w) for w in workloads if w.endswith('.json')
             ]
-        elif len(workloads) == 1:
-            workloads = workloads[0]
+            if not self.workloads:
+                raise error.Error(f"Workloads not found.")
 
-        if not workloads:
-            raise IOError("Workloads not found in {}".format(workloads_path))
+        if external_events_fn and not os.path.exists(external_events_fn):
+            raise error.Error(f"File {external_events_fn} does not exist.")
 
-        self.workloads = workloads
-        self.platform_fn = platform_fn
+        self.seed(seed)
+        self.simulator = batsim_py.SimulatorHandler()
+        self.simulation_time = simulation_time
+        self.external_events_fn = external_events_fn
+        self.allow_compute_sharing = allow_compute_sharing
+        self.allow_storage_sharing = allow_storage_sharing
+        self.workload: Optional[str] = None
 
-    def _start_simulation(self):
-        # self.np_random.shuffle(self.workloads)
-        group = self.workloads[self.np_random.randint(len(self.workloads))]
-        workload = self.np_random.choice(group) if isinstance(group, list) else group
-        self.workload_name = "{}".format(
-            workload[workload.rfind('/')+1:workload.rfind('.json')])
-        export_fn = self.OUTPUT + self.workload_name if self.export else None
+    def reset(self) -> Any:
+        self._close_simulator()
+        self._start_simulator()
+        return self._get_state()
 
-        self.rjms.start(platform_fn=self.platform_fn,
-                        workload_fn=workload,
-                        simulation_time=self.simulation_time,
-                        output_fn=export_fn,
-                        qos_stretch=self.qos_stretch)
+    def render(self, mode: str = 'human') -> None:
+        raise error.Error(f"Not supported.")
 
-    def close(self, s=None, a=None):
-        self.rjms.close()
-        self.workloads = self.platform_fn = None
+    def close(self) -> None:
+        self._close_simulator()
 
-    def reset(self):
-        assert len(self.workloads) > 0
-        self.rjms.close()
-        self._start_simulation()
-        return self._get_obs()
+    def seed(self, seed: Optional[int] = None) -> Sequence[int]:
+        self.np_random, s = seeding.np_random(seed)
+        return [s]
 
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def step(self, action):
+    @abstractmethod
+    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
         raise NotImplementedError
 
-    def render(self, mode='human'):
+    @abstractmethod
+    def _get_state(self) -> Any:
         raise NotImplementedError
 
-    def _get_space(self):
+    @abstractmethod
+    def _get_spaces(self) -> Tuple[Any, Any]:
         raise NotImplementedError
 
-    def _get_obs(self):
-        raise NotImplementedError
+    def _close_simulator(self) -> None:
+        self.simulator.close()
+
+    def _start_simulator(self) -> None:
+        self.workload = self.np_random.choice(self.workloads)
+        self.simulator.start(platform=self.platform_fn,
+                             workload=self.workload,  # type:ignore
+                             verbosity='information',
+                             simulation_time=self.simulation_time,
+                             allow_compute_sharing=self.allow_compute_sharing,
+                             allow_storage_sharing=self.allow_storage_sharing,
+                             external_events=self.external_events_fn)
