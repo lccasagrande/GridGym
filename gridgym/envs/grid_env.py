@@ -22,7 +22,9 @@ class GridEnv(gym.Env):
                  external_events_fn: Optional[str] = None,
                  simulation_time: Optional[float] = None,
                  allow_compute_sharing: bool = False,
-                 allow_storage_sharing: bool = True) -> None:
+                 allow_storage_sharing: bool = True,
+                 verbosity: batsim_py.simulator.BatsimVerbosity = 'quiet') -> None:
+
         if not platform_fn:
             raise error.Error('Expected `platform_fn` argument to be a non '
                               f'empty string, got {platform_fn}.')
@@ -54,6 +56,7 @@ class GridEnv(gym.Env):
         self.allow_compute_sharing = allow_compute_sharing
         self.allow_storage_sharing = allow_storage_sharing
         self.workload: Optional[str] = None
+        self.verbosity = verbosity
 
     def reset(self) -> Any:
         self._close_simulator()
@@ -89,7 +92,7 @@ class GridEnv(gym.Env):
         self.workload = self.np_random.choice(self.workloads)
         self.simulator.start(platform=self.platform_fn,
                              workload=self.workload,  # type:ignore
-                             verbosity='information',
+                             verbosity=self.verbosity,
                              simulation_time=self.simulation_time,
                              allow_compute_sharing=self.allow_compute_sharing,
                              allow_storage_sharing=self.allow_storage_sharing,
