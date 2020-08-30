@@ -1,31 +1,23 @@
 import argparse
-import math
-import csv
-import os.path as osp
-from collections import defaultdict
 
-import pandas as pd
-import numpy as np
 import gym
+import numpy as np
 
 import gridgym.envs.off_reservation_env as e
-from batsim_py.resource import ResourceState
-from batsim_py.utils.graphics import plot_simulation_graphics
 
 
 class FirstFitScheduler():
     def act(self, obs):
-        queue = [j for j in obs['queue']['jobs'] if j is not None]
-        nb_available = len(obs['agenda']) - np.count_nonzero(obs['agenda'])
-
-        for i in range(len(queue)):
-            if queue[i]['res'] <= nb_available:
-                return i + 1
-        return 0
+        agenda = obs['platform']['agenda']
+        queue = obs['queue']['jobs']
+        nb_available = len(agenda) - sum(1 for j in agenda if j[1] != 0)
+        job_pos = next((i for i, j in enumerate(queue)
+                        if 0 < j[1] <= nb_available), -1)
+        return job_pos + 1
 
     def play(self, env, verbose=True):
         history = {"score": 0, 'steps': 0, 'info': None}
-        obs, done = env.reset(), False
+        obs, done, info = env.reset(), False, {}
         while not done:
             obs, reward, done, info = env.step(self.act(obs))
             history['score'] += reward
@@ -33,8 +25,8 @@ class FirstFitScheduler():
             history['info'] = info
 
         if verbose:
-            print("[DONE] Score: {} - Steps: {} - Output: /tmp/GridGym/{}".format(history['score'], history['steps'],
-                                                                                  info['workload_name']))
+            print("[DONE] Score: {} - Steps: {} - Output: /tmp/GridGym/{}".format(
+                history['score'], history['steps'], info['workload']))
         env.close()
         return history
 
@@ -44,32 +36,25 @@ def run(args):
 
     agent = FirstFitScheduler()
 
-    env = gym.make(
-        args.env_id,
-        use_batsim=False,
-        timeout=5,
-        act_interval=1,
-        export=True,
-        max_queue_sz=args.queue_sz,
-        max_simulation_time=args.sim_time)
+    env = gym.make(args.env_id,
+                   platform_fn="files/platforms/platform.xml",
+                   workloads_dir="files/workloads/",
+                   t_action=args.t_action,
+                   queue_max_len=args.queue_sz,
+                   t_shutdown=5,
+                   hosts_per_server=12)
 
     hist = agent.play(env, True)
-
-    if args.plot_results:
-        plot_simulation_graphics(
-            "/tmp/GridGym/{}".format(hist['info']['workload_name']), show=True)
 
     print("[DONE]")
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", default="Scheduling-v0", type=str)
-    parser.add_argument("--plot_results", action="store_true")
-
+    parser.add_argument("--env_id", default="gridgym:Scheduling-v0", type=str)
     # Agent specific args
     parser.add_argument("--queue_sz", default=20, type=int)
-    parser.add_argument("--sim_time", default=10*1440, type=int)
+    parser.add_argument("--t_action", default=1, type=int)
     return parser.parse_args()
 
 
