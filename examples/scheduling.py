@@ -1,7 +1,6 @@
 import argparse
 
 import gym
-import numpy as np
 
 import gridgym.envs.off_reservation_env as e
 
@@ -25,8 +24,8 @@ class FirstFitScheduler():
             history['info'] = info
 
         if verbose:
-            print("[DONE] Score: {} - Steps: {} - Output: /tmp/GridGym/{}".format(
-                history['score'], history['steps'], info['workload']))
+            print(
+                "[DONE] Score: {} - Steps: {}".format(history['score'], history['steps']))
         env.close()
         return history
 

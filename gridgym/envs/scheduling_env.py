@@ -7,9 +7,8 @@ from typing import Dict
 
 from batsim_py import HostEvent
 from batsim_py import SimulatorEvent
-from batsim_py.resources import Host
-
 import batsim_py
+from batsim_py.resources import Host
 import gym
 from gym import spaces
 from gym import error
@@ -80,8 +79,7 @@ class SchedulingEnv(GridEnv):
 
         super().__init__(platform_fn, workloads_dir, seed,
                          external_events_fn, simulation_time, True,
-                         hosts_per_server=hosts_per_server,
-                         verbosity='information')
+                         hosts_per_server=hosts_per_server)
         self.simulator.subscribe(
             batsim_py.JobEvent.COMPLETED, self._on_job_completed)
 

@@ -33,7 +33,8 @@ setup(
     install_requires=install_requires,
     packages=find_packages(),
     package_dir={'gridgym': 'gridgym'},
-    keywords=["Reinforcement Learning", "Scheduler", "Resource and Job Management", "Cluster"],
+    keywords=["Reinforcement Learning", "Scheduler",
+              "Resource and Job Management", "Cluster"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
