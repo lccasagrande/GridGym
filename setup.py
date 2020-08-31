@@ -19,7 +19,7 @@ install_requires = read_requirements_file('requirements.txt')
 
 
 setup(
-    name='GridGym',
+    name='gridgym',
     version=__version__,
     license='MIT',
     author='lccasagrande',
